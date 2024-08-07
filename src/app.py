@@ -17,22 +17,22 @@ conexion=MySQL(app)
 
 # ------- usuario nuevo -----------
 
-@app.route('/registrar', methods=["POST"]) #como se maneja el registro? llega todo en un solo json, son varios pasos? ver tema de tablas uno a muchos
+@app.route('/registrar', methods=["POST"]) 
 def registrar():
     datos= request.get_json()
-    username = datos.get('username') 
-    fullname = datos.get('fullname')
+    nombre = datos.get('nombre') 
+    apellido = datos.get('apellido')
     email = datos.get('email')
     password = datos.get('password')
     informacion_adicional = datos.get('informacion_adicional')
-    image = datos.get('image')
+    image = datos.get('image') #cursor de tiempo para que baje en tiempo real
     
     try: 
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
         #Insertar en tabla usuarios
-        sql = "INSERT INTO usuarios (username, fullname, email, password) VALUES (%s, %s, %s, %s)"
-        cursor.execute(sql, (username, fullname, email, password))
+        sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql, (nombre, apellido, email, password))
         user_id = cursor.lastrowid
         #insertar en tabla informacion(me aseguro que usuario e informacion tengan el mismo id)
         sql = "INSERT INTO informacion (usuario, informacion_adicional, image) VALUES (%s, %s, %s)"
@@ -50,23 +50,42 @@ def registrar():
 
 # ------- CRUD tabla usuarios -----------
 
-@app.route('/usuario', methods=["GET"])  #pedir a la bbdd informacion_adicional en esta peticion o en otra?
+#busca por nombre y apellido si dan los dos datos  o solo por nombre o apellido si dan uno solo
+#cambiar a participantes y agregar el resto de la info
+@app.route('/usuario', methods=["GET"])
 def usuario():
-    username = request.args.get('username')
+    nombre = request.args.get('nombre')
+    apellido = request.args.get('apellido')
     try:
         cursor=conexion.connection.cursor()
-        sql = "SELECT * FROM usuarios WHERE username = %s "
-        cursor.execute(sql, (username,))
-        datos=cursor.fetchone()
-        if datos != None:
-            usuario = {"id":datos[0], "username":datos[1], "fullname":datos[2], "email": datos[3], "contraseña":datos[4]}
-            return jsonify({"usuarios":usuario,"mensaje": "Datos del usuario"})
+        if nombre is not None and apellido is not None:
+            sql = "SELECT * FROM usuarios WHERE nombre = %s AND apellido= %s"
+            cursor.execute(sql, (nombre,apellido))
+            datos=cursor.fetchone()
+            if datos is not None:
+                usuario = {"id":datos[0], "nombre":datos[1], "apellido":datos[2], "email": datos[3], "contraseña":datos[4]}
+                return jsonify({"nombre":usuario,"mensaje": "Datos del usuario"})
+            else:
+                return jsonify({"mensaje": "Usuario no encontrado"})    
         else:
-            return jsonify({"mensaje": "Usuario no encontrado"})    
+            sql = "SELECT * FROM usuarios WHERE nombre = %s or apellido= %s"
+            cursor.execute(sql, (nombre,apellido))
+            datos=cursor.fetchall()
+            print(datos)
+            if datos:
+                usuarios = []
+                for user in datos:
+                    usuario = {"id":user[0], "nombre":user[1], "apellido":user[2], "email": user[3], "contraseña":user[4]}
+                    usuarios.append(usuario)
+                return jsonify({"usuarios":usuarios,"mensaje":"Todos los usuarios"})
+            else:
+                return jsonify({"mensaje": "Usuario no encontrado"})        
     except Exception as ex:    
         return jsonify({"mensaje": "Error al buscar datos del usuario"})    
     finally:
         cursor.close()
+
+
 
 @app.route('/usuarios_todos', methods=["GET"]) 
 def mostrar_todos_usuarios():
@@ -77,7 +96,7 @@ def mostrar_todos_usuarios():
         datos=cursor.fetchall()
         usuarios = []
         for user in datos:
-            usuario = {"id":user[0], "username":user[1], "fullname":user[2], "email": user[3], "contraseña":user[4]}
+            usuario = {"id":user[0], "nombre":user[1], "apellido":user[2], "email": user[3], "contraseña":user[4]}
             usuarios.append(usuario)
         return jsonify({"usuarios":usuarios,"mensaje":"Todos los usuarios"})
         
@@ -86,18 +105,20 @@ def mostrar_todos_usuarios():
     finally:
         cursor.close()
 
+
+
 @app.route('/usuario', methods=["PUT"])
 def actualizar_usuario():
     id = request.args.get('id')
     datos= request.get_json()
-    username = datos.get('username')  # Hacer que se pueda cambiar solo una vez por mes
-    fullname = datos.get('fullname')
+    nombre = datos.get('nombre')  # Hacer que se pueda cambiar solo una vez por mes
+    apellido = datos.get('apellido')
     email = datos.get('email')
     password = datos.get('password')  #Hacer esta actualizacion en una peticion separada por seguridad
     try: 
         cursor=conexion.connection.cursor()
-        sql = "UPDATE usuarios SET username=%s, fullname=%s, email=%s, password=%s WHERE id=%s"
-        cursor.execute(sql, (username, fullname, email, password, id))
+        sql = "UPDATE usuarios SET nombre=%s, apellido=%s, email=%s, password=%s WHERE id=%s"
+        cursor.execute(sql, (nombre, apellido, email, password, id))
         conexion.connection.commit()
         return jsonify({"mensaje": "Datos actualizados"})        
     except Exception as ex:
@@ -105,6 +126,8 @@ def actualizar_usuario():
         return jsonify({"mensaje": "Error al registrar el usuario"}), 500    
     finally:
         cursor.close()
+
+
 
 @app.route('/usuario', methods=["DELETE"])
 def borrar_usuario():
@@ -120,6 +143,8 @@ def borrar_usuario():
         return jsonify({"mensaje":"error al eliminar el usuario"})
     finally:
         cursor.close()
+    
+    #redireccionar a pagina principal
 
 
 
@@ -127,7 +152,7 @@ def borrar_usuario():
 
 @app.route('/informacion', methods=["PUT"])
 def actualizar_informacion():
-    id = request.args.get('id')
+    id = request.args.get('id')  # me envia email, busco email en base de datos para traer id y hago peticion con id
     datos= request.get_json()
     informacion = datos.get('informacion_adicional')
     image = datos.get('image')    
@@ -148,8 +173,9 @@ def actualizar_informacion():
         cursor.close()
 
 # ------- CRUD tabla perfiles    -----------
-# ------- CRUD tabla lenguajes   -----------
 
+
+# ------- CRUD tabla lenguajes   -----------
 
 
 
