@@ -1,4 +1,4 @@
--- DROP DATABASE proyecto_hub
+DROP DATABASE proyecto_hub
 
 CREATE DATABASE IF NOT EXISTS proyecto_hub;
 USE proyecto_hub;
@@ -49,15 +49,15 @@ CREATE TABLE lenguajes(
 
 ALTER TABLE informacion 
 ADD CONSTRAINT fk_informacion_usuarios 
-FOREIGN KEY (usuario) REFERENCES usuarios(id);
+FOREIGN KEY (usuario) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
 ALTER TABLE perfiles 
 ADD CONSTRAINT fk_perfiles_usuarios 
-FOREIGN KEY (usuario) REFERENCES usuarios(id);
+FOREIGN KEY (usuario) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
 ALTER TABLE lenguajes 
 ADD CONSTRAINT fk_lenguajes_usuarios 
-FOREIGN KEY (usuario) REFERENCES usuarios(id);
+FOREIGN KEY (usuario) REFERENCES usuarios(id) ON DELETE CASCADE;
 
 
 -- Pruebas
@@ -66,8 +66,4 @@ INSERT INTO `usuarios` VALUES (0,'Federico',  'Tasso', 'fedtasso@gmail.com','abc
 
 SELECT * FROM usuarios;
 
-
--- CRUD usuarios
-SELECT * FROM usuarios where nombre = "Federico" AND apellido = "Tasso";
-INSERT INTO `usuarios` VALUES (0,'Federico',  'Tasso', 'fedtasso@gmail.com','abcd1234', NOW(), NOW())
 
