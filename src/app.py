@@ -43,12 +43,10 @@ def registrar():
             sql = "INSERT INTO perfiles (usuario, perfil) VALUES(%s, %s)"
             cursor.execute(sql,(user_id,perfil))
         conexion.connection.commit()
-        return jsonify({"mensaje": "Usuario registrado"})
-        
-    except Exception as ex:     # mostrar mensaje segun el tipo de error
+        return jsonify({"mensaje": "Usuario registrado"})        
+    except Exception as ex:     
         print(f"Error: {ex}") 
-        return jsonify({"mensaje": "Error al registrar el usuario"})
-    
+        return jsonify({"mensaje": "Error al registrar el usuario"})    
     finally:
         cursor.close()
 
@@ -58,9 +56,6 @@ def registrar():
 def usuario():
     nombre = request.args.get('nombre')
     apellido = request.args.get('apellido')
-    print (nombre)
-    print (apellido)
-
     try:
         cursor=conexion.connection.cursor()
         if nombre is not None and apellido is not None:
@@ -227,10 +222,18 @@ def mostrar_todos_usuarios():
 
 @app.route('/usuario', methods=["DELETE"])
 def borrar_usuario():
-    id = request.args.get('id')
+    email = request.args.get('email')
     try:
         cursor=conexion.connection.cursor()
-        sql = "DELETE FROM usuarios WHERE id=%s"
+        #seleccionar id desde email
+        cursor.execute(("SELECT id FROM usuarios WHERE email = %s"),(email,))
+        result = cursor.fetchone()
+        #comprobar si existe
+        if result is None:
+            return jsonify({"mensaje": "Usuario no encontrado"})
+        #borrar usuario
+        id= result[0]        
+        sql = "DELETE FROM usuarios WHERE id = %s"
         cursor.execute(sql,(id,))
         conexion.connection.commit()
         return jsonify({"mensaje":"Has eliminado el usuario"})
@@ -246,29 +249,35 @@ def borrar_usuario():
 
 @app.route('/usuario', methods=["PUT"])
 def actualizar_usuario():
-    id = request.args.get('id')
+    email = request.args.get('email')
     datos= request.get_json()
     nombre = datos.get('nombre')  # Hacer que se pueda cambiar solo una vez por mes
     apellido = datos.get('apellido')
-    email = datos.get('email')
     password = datos.get('password')  #Hacer esta actualizacion en una peticion separada por seguridad
     try: 
         cursor=conexion.connection.cursor()
+        #seleccionar id desde email
+        cursor.execute("SELECT id FROM usuarios WHERE email = %s",(email,))
+        result = cursor.fetchone()
+        #comprobar si existe
+        if result is None:
+            return jsonify ({"mensaje": "Usuario no encontrado"})
+        # actualizar usuario
+        id = result[0]
         sql = """UPDATE
                     usuarios 
                 SET 
                     nombre=%s, 
                     apellido=%s, 
-                    email=%s, 
                     password=%s 
                 WHERE 
-                    id=%s"""
-        cursor.execute(sql, (nombre, apellido, email, password, id))
+                    id = %s"""
+        cursor.execute(sql, (nombre, apellido, password, id))
         conexion.connection.commit()
         return jsonify({"mensaje": "Datos actualizados"})        
     except Exception as ex:
         print(f"Error: {ex}") 
-        return jsonify({"mensaje": "Error al registrar el usuario"}), 500    
+        return jsonify({"mensaje": "Error al actualizar el usuario"}), 500    
     finally:
         cursor.close()
 
@@ -277,27 +286,31 @@ def actualizar_usuario():
 
 @app.route('/informacion', methods=["PUT"])
 def actualizar_informacion():
-    id = request.args.get('id')  # me envia email, busco email en base de datos para traer id y hago peticion con id
+    email = request.args.get('email') 
     datos= request.get_json()
     informacion = datos.get('informacion_adicional')
     image = datos.get('image')    
     try: 
         cursor=conexion.connection.cursor()
-
-        cursor.execute("SELECT count(*) FROM informacion WHERE usuario=%s", (id,))
-        existe_informacion = cursor.fetchone()[0]
-        print(existe_informacion)
-        
+        #seleccionar id desde email
+        cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+        result = cursor.fetchone()
+        #comprobar si existe
+        if result is None:
+            return jsonify ({"mensaje": "Usuario no encontrado"})
+        #actualizar informacion
+        id = result[0]
+        cursor.execute("SELECT count(*) FROM informacion WHERE usuario = %s", (id,))
+        existe_informacion = cursor.fetchone()
         if existe_informacion:
             sql = """UPDATE 
                         informacion 
                     SET 
-                        informacion_adicional=%s, 
-                        image=%s 
+                        informacion_adicional = %s, 
+                        image = %s 
                     WHERE 
-                        id=%s"""
-            cursor.execute(sql, (informacion, image, id))
-            # return jsonify({"mensaje": "Datos actualizados"})        
+                        usuario = %s"""
+            cursor.execute(sql, (informacion, image, id))   
         else:
             sql = """INSERT INTO
                         informacion (usuario, informacion_adicional, image)
@@ -316,20 +329,59 @@ def actualizar_informacion():
 
 @app.route('/informacion', methods=["DELETE"])
 def borrar_informacion():
-    id = request.args.get('id')
+    email = request.args.get('email')
     try:
         cursor=conexion.connection.cursor()
+        # seleccionar id desde email
+        cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+        result = cursor.fetchone()
+        # comprobar si existe
+        if result is None:
+            return jsonify ({"mensaje": "Informacion de usuario no encontrado"})
+        # borrar informacion
+        id = result[0]
         sql = "DELETE FROM informacion WHERE usuario = %s"
         cursor.execute(sql,(id,))
         conexion.connection.commit()
-        return jsonify({"mensaje":"Has eliminado el usuario"})
+        return jsonify({"mensaje":"Has eliminado la informacion del usuario"})
     except Exception as ex:
         print(ex)
-        return jsonify({"mensaje":"error al eliminar el usuario"})
+        return jsonify({"mensaje":"error al eliminar la informacion"})
     finally:
         cursor.close()
 
 # ------- Update Delete tabla perfiles    -----------
+
+@app.route('/perfiles', methods=["DELETE"])
+def borrar_perfiles():
+    email = request.args.get('email')
+    perfiles = request.args.getlist("perfiles")    
+    try:
+        cursor = conexion.connection.cursor()
+        # seleccionar id desde email
+        cursor.execute("SELECT id FROM usuarios WHERE email = %s",(email,))
+        result = cursor.fetchone()
+        # comprobar si existe
+        if result is None:
+            return jsonify ({"mensaje":"perfil de usuario no encontrado"})  
+        
+        id = result [0]
+        if not perfiles:
+            # borrar perfiles            
+            cursor.execute("DELETE FROM perfiles WHERE usuario = %s", (id,))
+            conexion.connection.commit()
+            return jsonify({"mensaje":"Has eliminado los perfiles del usuario"}) 
+        else:
+            # borrar perfiles
+            for perfil in perfiles:
+                cursor.execute("DELETE FROM perfiles WHERE usuario = %s AND perfil = %s", (id, perfil))
+            conexion.connection.commit()
+            return jsonify({"mensaje":"Has eliminado el perfil del usuario"})
+    except Exception as ex:
+        print(ex)
+        return jsonify ({"mensaje":"error al eliminar el perfil"})
+    finally:
+        cursor.close()
 
 
 
