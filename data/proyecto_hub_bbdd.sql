@@ -1,4 +1,4 @@
-DROP DATABASE proyecto_hub
+-- DROP DATABASE proyecto_hub
 
 CREATE DATABASE IF NOT EXISTS proyecto_hub;
 USE proyecto_hub;
@@ -19,7 +19,7 @@ CREATE TABLE usuarios(
 
 CREATE TABLE informacion(
     `id` INT NOT NULL AUTO_INCREMENT,
-    `usuario` INT, 
+    `usuario_id` INT, 
     `informacion_adicional` TEXT,
     `image` VARCHAR(255),
     `informacion_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -29,7 +29,7 @@ CREATE TABLE informacion(
 
 CREATE TABLE perfiles(
     `id` INT NOT NULL AUTO_INCREMENT,
-    `usuario` INT, 
+    `usuario_id` INT, 
     `perfil` VARCHAR (50),
     `perfil_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
@@ -37,7 +37,7 @@ CREATE TABLE perfiles(
 
 CREATE TABLE lenguajes(
     `id` INT NOT NULL AUTO_INCREMENT,
-    `usuario` INT, 
+    `usuario_id` INT, 
     `lenguaje` VARCHAR (50),
     `nivel` INT,
     `lenguaje_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -49,21 +49,20 @@ CREATE TABLE lenguajes(
 
 ALTER TABLE informacion 
 ADD CONSTRAINT fk_informacion_usuarios 
-FOREIGN KEY (usuario) REFERENCES usuarios(id)  ON DELETE CASCADE;
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
 ALTER TABLE perfiles 
 ADD CONSTRAINT fk_perfiles_usuarios 
-FOREIGN KEY (usuario) REFERENCES usuarios(id)  ON DELETE CASCADE;
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
 ALTER TABLE lenguajes 
 ADD CONSTRAINT fk_lenguajes_usuarios 
-FOREIGN KEY (usuario) REFERENCES usuarios(id) ON DELETE CASCADE;
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
 
 
--- Pruebas
-INSERT INTO `usuarios` VALUES (0,'Federico',  'Tasso', 'fedtasso@gmail.com','abcd1234', NOW(), NOW()),
-(0,'Bautista',  'Nar', 'bauti@gmail.com','abcd1234', NOW(), NOW());
+-- -- Pruebas
+-- INSERT INTO `usuarios` VALUES (0,'Federico',  'Tasso', 'fedtasso@gmail.com','abcd1234', NOW(), NOW()),
+-- (0,'Bautista',  'Nar', 'bauti@gmail.com','abcd1234', NOW(), NOW());
 
-SELECT * FROM usuarios;
 
 

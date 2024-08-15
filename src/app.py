@@ -10,7 +10,7 @@ conexion=MySQL(app)
 
 # Hacer validaciones
 # Hacer hash de contraseña
-# 
+# Considera retornar un código HTTP 409 Conflict en lugar de 200 si el usuario ya existe.
 
 
 # ------- CRUD usuario -----------
@@ -34,7 +34,7 @@ def registrar():
         usuario = cursor.fetchone()
         print(usuario)
         if usuario is not None:
-            return jsonify({"mensaje":"El usuario ya se encuentra registrado"})
+            return jsonify({"mensaje":"El usuario ya se encuentra registrado"}), 409 
 
         #Insertar en tabla usuarios
         sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
@@ -51,7 +51,7 @@ def registrar():
         for clave, valor in lenguajes.items():
             cursor.execute("INSERT INTO lenguajes (usuario_id, lenguaje, nivel) VALUES (%s, %s, %s)", (usuario_id, clave, valor))
         conexion.connection.commit()
-        return jsonify({"mensaje": "Usuario registrado"}),200       
+        return jsonify({"mensaje": "Usuario registrado"}),409      
     except Exception as ex: 
         conexion.connection.rollback()
         return jsonify({"mensaje": "Error al registrar el usuario", "error": str(ex)}), 500    
@@ -59,121 +59,11 @@ def registrar():
         cursor.close()
 
 
-# busqueda por participante --> nombre y/o apellido
-@app.route('/usuario', methods=["GET"])
-def usuario():
+# mostrar participantes
+@app.route('/usuarios', methods=["GET"]) 
+def mostrar_usuarios():
     nombre = request.args.get('nombre')
     apellido = request.args.get('apellido')
-    try:
-        cursor=conexion.connection.cursor()
-        if nombre is not None and apellido is not None:
-            sql = """
-            SELECT 
-                u.id,
-                u.nombre,
-                u.apellido,
-                u.email,
-                u.password,
-                i.informacion_adicional,
-                i.image,
-                p.perfil,
-                l.lenguaje,
-                l.nivel
-            FROM 
-                usuarios u
-            LEFT JOIN 
-                informacion i ON u.id = i.usuario_id
-            LEFT JOIN
-                perfiles p ON u.id = p.usuario_id
-            LEFT JOIN 
-                lenguajes l ON u.id = l.usuario_id
-            WHERE 
-                nombre = %s AND apellido= %s"""
-            cursor.execute(sql, (nombre,apellido))
-            datos=cursor.fetchall()
-            if datos:
-                usuario_dict = {}
-                for user in datos:
-                    user_id = user[0]
-                    if user_id not in usuario_dict:
-                        usuario_dict[user_id] = {
-                            "id": user_id,
-                            "nombre": user[1],
-                            "apellido": user[2],
-                            "email": user[3],
-                            "contraseña": user[4],
-                            "informacion": user[5],
-                            "image": user[6],
-                            "perfiles": [], 
-                            "lenguaje_nivel": {}
-                        }
-                    if user[7] is not None and user[7] not in usuario_dict[user_id]["perfiles"]:
-                        usuario_dict[user_id]["perfiles"].append(user[7])
-                    if user[8] is not None and user[8] not in usuario_dict[user_id]["lenguaje_nivel"]:
-                        usuario_dict[user_id]["lenguaje_nivel"][user[8]] = user[9]          
-                usuario = list(usuario_dict.values())       
-                return jsonify({"usuario":usuario,"mensaje": "Datos del usuario"}), 200
-            else:
-                return jsonify({"mensaje": "Usuario no encontrado"}), 404
-        else:
-            sql = """
-            SELECT 
-                u.id,
-                u.nombre,
-                u.apellido,
-                u.email,
-                u.password,
-                i.informacion_adicional,
-                i.image,
-                p.perfil,
-                l.lenguaje,
-                l.nivel
-            FROM 
-                usuarios u
-            LEFT JOIN 
-                informacion i ON u.id = i.usuario_id
-            LEFT JOIN
-                perfiles p ON u.id = p.usuario_id
-            LEFT JOIN 
-                lenguajes l ON u.id = l.usuario_id
-            WHERE 
-                nombre = %s OR apellido= %s"""
-            cursor.execute(sql, (nombre,apellido))
-            datos=cursor.fetchall()
-            if datos:
-                usuario_dict = {}
-                for user in datos:                    
-                    user_id = user[0]
-                    if user_id not in usuario_dict:
-                        usuario_dict[user_id] = {
-                            "id": user_id,
-                            "nombre": user[1],
-                            "apellido": user[2],
-                            "email": user[3],
-                            "contraseña": user[4],
-                            "informacion": user[5],
-                            "image": user[6],
-                            "perfiles": [], 
-                            "lenguaje_nivel": {}                            
-                        }
-                    if user[7] is not None and user[7] not in usuario_dict[user_id]["perfiles"]:
-                        usuario_dict[user_id]["perfiles"].append(user[7])
-                    if user[8] is not None and user[8] not in usuario_dict[user_id]["lenguaje_nivel"]:
-                        usuario_dict[user_id]["lenguaje_nivel"][user[8]] = user[9]                        
-                usuario = list(usuario_dict.values())
-                return jsonify({"usuarios":usuario,"mensaje":"Todos los usuarios"}), 200
-            else:
-                return jsonify({"mensaje": "Usuario no encontrado"}), 404
-    except Exception as ex:    
-        print(ex)
-        return jsonify({"mensaje": "Error al buscar datos del usuario", "error": str(ex)}), 500
-    finally:
-        cursor.close()
-
-
-# mostrar todos los participantes
-@app.route('/usuarios_todos', methods=["GET"]) 
-def mostrar_todos_usuarios():
     try:
         cursor=conexion.connection.cursor()
         sql = """
@@ -195,8 +85,19 @@ def mostrar_todos_usuarios():
             LEFT JOIN
                 perfiles p ON u.id = p.usuario_id
             LEFT JOIN 
-                lenguajes l ON u.id = l.usuario_id"""
-        cursor.execute(sql)
+                lenguajes l ON u.id = l.usuario_id
+            WHERE 1=1
+            """
+        #agregar nombre y apellido a la consulta sql
+        parametros = []
+        if nombre:
+            sql += "AND nombre = %s"
+            parametros.append(nombre)
+        if apellido:
+            sql += "AND apellido = %s"
+            parametros.append(apellido)
+        # ejecura consulta
+        cursor.execute(sql, parametros)
         datos=cursor.fetchall()
         if datos:
             usuarios_dict = {}        
