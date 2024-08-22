@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_mysqldb import MySQL 
-
+from security import hash_password, verify_password, generate_auth_token, verify_auth_token, token_required
 from config import config
 
 app=Flask(__name__)
@@ -8,9 +8,37 @@ app=Flask(__name__)
 conexion=MySQL(app)
 
 
-# Hacer validaciones
+# Hacer validaciones de datos entrantes
 # Hacer hash de contraseña
 # Considera retornar un código HTTP 409 Conflict en lugar de 200 si el usuario ya existe.
+
+# ------- login -----------
+@app.route('/login', methods=["POST"])
+def login():
+    datos=request.get_json()
+    email = datos.get('email')
+    user_pass_front = datos.get('password')
+    try:
+        cursor=conexion.connection.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE email = %s" , (email,))
+        usuario = cursor.fetchone()
+        if usuario is None:
+             return jsonify({"mensaje":"El usuario no se encuentra registrado"}), 409
+        user_pass_bbdd = usuario[4]
+        if usuario and verify_password(user_pass_bbdd, user_pass_front):            
+            token = generate_auth_token(usuario[0])
+            return jsonify({'token': token,
+                            "nombre" : usuario[1],
+                            "apellido" : usuario[2],
+                            "email" : usuario[3]
+                            }), 200
+        else:
+            return jsonify({"mensaje": "Credenciales inválidas"}), 401  
+    except Exception as ex:
+        return jsonify({"mensaje": "Error al loguear el usuario", "error": str(ex)}), 500  
+    finally:
+        cursor.close()
+
 
 
 # ------- CRUD usuario -----------
@@ -35,15 +63,16 @@ def registrar():
         print(usuario)
         if usuario is not None:
             return jsonify({"mensaje":"El usuario ya se encuentra registrado"}), 409 
-
-        #Insertar en tabla usuarios
+        # Hacer hash de contraseña
+        hashed_password = hash_password(password)
+        # Insertar en tabla usuarios
         sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
-        cursor.execute(sql, (nombre, apellido, email, password))
+        cursor.execute(sql, (nombre, apellido, email, hashed_password))
         usuario_id = cursor.lastrowid
-        #insertar en tabla informacion (me aseguro que usuario e informacion tengan el mismo id)
+        # insertar en tabla informacion (me aseguro que usuario e informacion tengan el mismo id)
         sql = "INSERT INTO informacion (usuario_id, informacion_adicional, image) VALUES (%s, %s, %s)"
         cursor.execute(sql, (usuario_id,informacion_adicional,image))
-        #insetar en tabla perfiles
+        # insetar en tabla perfiles
         for perfil in perfiles:
             sql = "INSERT INTO perfiles (usuario_id, perfil) VALUES(%s, %s)"
             cursor.execute(sql,(usuario_id,perfil))
@@ -51,7 +80,7 @@ def registrar():
         for clave, valor in lenguajes.items():
             cursor.execute("INSERT INTO lenguajes (usuario_id, lenguaje, nivel) VALUES (%s, %s, %s)", (usuario_id, clave, valor))
         conexion.connection.commit()
-        return jsonify({"mensaje": "Usuario registrado"}),409      
+        return jsonify({"mensaje": "Usuario registrado"}),200      
     except Exception as ex: 
         conexion.connection.rollback()
         return jsonify({"mensaje": "Error al registrar el usuario", "error": str(ex)}), 500    
@@ -60,7 +89,7 @@ def registrar():
 
 
 # mostrar participantes
-@app.route('/usuarios', methods=["GET"]) 
+@app.route('/usuarios', methods=["GET"])
 def mostrar_usuarios():
     nombre = request.args.get('nombre')
     apellido = request.args.get('apellido')
@@ -109,7 +138,7 @@ def mostrar_usuarios():
                         "nombre": user[1],
                         "apellido": user[2],
                         "email": user[3],
-                        "contraseña": user[4],
+                        # "contraseña": user[4],
                         "informacion": user[5],
                         "image": user[6],
                         "perfiles": [], 
@@ -132,6 +161,7 @@ def mostrar_usuarios():
 
 
 @app.route('/usuario', methods=["DELETE"])
+@token_required
 def borrar_usuario():
     email = request.args.get('email')
     try:
@@ -142,8 +172,8 @@ def borrar_usuario():
         #comprobar si existe
         if result is None:
             return jsonify({"mensaje": "Usuario no encontrado"}), 404
-        #borrar usuario
-        id= result[0]        
+        id= result[0]  
+        #Borrar usuario
         sql = "DELETE FROM usuarios WHERE id = %s"
         cursor.execute(sql,(id,))
         conexion.connection.commit()
@@ -159,6 +189,7 @@ def borrar_usuario():
 # ------- Update tabla usuarios -----------
 
 @app.route('/usuario', methods=["PUT"])
+@token_required
 def actualizar_usuario():
     email = request.args.get('email')
     datos= request.get_json()
@@ -174,6 +205,8 @@ def actualizar_usuario():
         #comprobar si existe
         if result is None:
             return jsonify ({"mensaje": "Usuario no encontrado"}), 404
+        # Hacer hash de contraseña
+        hashed_password = hash_password(password)
         # actualizar usuario
         id = result[0]
         sql = """UPDATE
@@ -184,7 +217,7 @@ def actualizar_usuario():
                     password=%s 
                 WHERE 
                     id = %s"""
-        cursor.execute(sql, (nombre, apellido, password, id))
+        cursor.execute(sql, (nombre, apellido, hashed_password, id))
         conexion.connection.commit()
         return jsonify({"mensaje": "Datos actualizados"}), 200    
     except Exception as ex:        
@@ -197,6 +230,7 @@ def actualizar_usuario():
 # ------- Update Delete tabla informacion    -----------
 
 @app.route('/informacion', methods=["PUT"])
+@token_required
 def actualizar_informacion():
     email = request.args.get('email') 
     datos= request.get_json()
@@ -214,8 +248,9 @@ def actualizar_informacion():
         #actualizar informacion
         id = result[0]
         cursor.execute("SELECT count(*) FROM informacion WHERE usuario_id = %s", (id,))
-        existe_informacion = cursor.fetchone()
-        if existe_informacion:
+        existe_informacion = cursor.fetchone()[0]
+        print(existe_informacion)       
+        if existe_informacion:        
             sql = """UPDATE 
                         informacion 
                     SET 
@@ -224,7 +259,7 @@ def actualizar_informacion():
                     WHERE 
                         usuario_id = %s"""
             cursor.execute(sql, (informacion, image, id))   
-        else:
+        else:            
             sql = """INSERT INTO
                         informacion (usuario_id, informacion_adicional, image)
                     VALUES 
@@ -241,6 +276,7 @@ def actualizar_informacion():
 
 
 @app.route('/informacion', methods=["DELETE"])
+@token_required
 def borrar_informacion():
     email = request.args.get('email')
     try:
@@ -248,11 +284,17 @@ def borrar_informacion():
         # seleccionar id desde email
         cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
         result = cursor.fetchone()
-        # comprobar si existe
+        # comprobar si existe        
         if result is None:
             return jsonify ({"mensaje": "Informacion de usuario no encontrado"}), 404
         # borrar informacion
         id = result[0]
+        # comprobar si existe información asociada al usuario
+        cursor.execute("SELECT id FROM informacion WHERE usuario_id = %s", (id,))
+        informacion_result = cursor.fetchone()
+        if informacion_result is None:
+            return jsonify({"mensaje": "Informacion de usuario no encontrado"}), 404
+        #Borrar informacion de usuario
         sql = "DELETE FROM informacion WHERE usuario_id = %s"
         cursor.execute(sql,(id,))
         conexion.connection.commit()
@@ -265,6 +307,7 @@ def borrar_informacion():
 # ------- Update Delete tabla perfiles    -----------
 
 @app.route('/perfiles', methods=["PUT"])
+@token_required
 def actualizar_perfiles():
     email = request.args.get('email')
     perfiles_request = request.args.getlist('perfiles')
@@ -277,7 +320,7 @@ def actualizar_perfiles():
         #comprobar si existe
         if result is None:
             return jsonify ({"mensaje": "Usuario no encontrado"}), 404
-        id = result[0]
+        id = result[0]        
         #comprobar si nuevos perfiles estan en BBDD  e insertar
         cursor.execute("SELECT perfil FROM perfiles WHERE usuario_id = %s", (id,))
         perfiles_bbdd = [perfil[0] for perfil in cursor.fetchall()]
@@ -311,6 +354,7 @@ def actualizar_perfiles():
 
 
 @app.route('/perfiles', methods=["DELETE"])
+@token_required
 def borrar_perfiles():
     email = request.args.get('email')
     perfiles = request.args.getlist("perfiles")    
@@ -323,6 +367,12 @@ def borrar_perfiles():
         if result is None:
             return jsonify ({"mensaje":"usuario no encontrado"}),404                
         id = result [0]
+        # comprobar si existe información asociada al usuario
+        cursor.execute("SELECT id FROM perfiles WHERE usuario_id = %s", (id,))
+        informacion_result = cursor.fetchone()
+        print(informacion_result)
+        if informacion_result is None:
+            return jsonify({"mensaje": "Informacion de usuario no encontrado"}), 404
         #borrar todos los perfiles si no viene lista en request perfiles
         if not perfiles:
             cursor.execute("DELETE FROM perfiles WHERE usuario_id = %s", (id,))
@@ -344,6 +394,7 @@ def borrar_perfiles():
 # ------- Update Delete tabla lenguajes   -----------
 
 @app.route('/lenguajes', methods=["PUT"])
+@token_required
 def actualizar_lenguajes():
     email = request.args.get('email')
     lenguajes_request = request.get_json() 
@@ -387,6 +438,7 @@ def actualizar_lenguajes():
 
 
 @app.route('/lenguajes', methods=["DELETE"])
+@token_required
 def borrar_lenguajes():
     email = request.args.get('email')
     lenguajes = request.args.getlist("lenguajes")
@@ -402,6 +454,11 @@ def borrar_lenguajes():
             return jsonify ({"mensaje":"usuario no encontrado"}),404
                 
         id = result [0]
+         # comprobar si existe información asociada al usuario
+        cursor.execute("SELECT id FROM informacion WHERE usuario_id = %s", (id,)) 
+        informacion_result = cursor.fetchone()
+        if informacion_result is None:
+            return jsonify({"mensaje": "Informacion de usuario no encontrado"}), 404
         #borrar todos los lenguajes si no viene lista en request perfiles
         if not lenguajes:
             cursor.execute("DELETE FROM lenguajes WHERE usuario_id = %s", (id,))

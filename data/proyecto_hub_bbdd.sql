@@ -9,7 +9,7 @@ CREATE TABLE usuarios(
     `nombre` VARCHAR(50) NOT NULL,
     `apellido` VARCHAR(50) NOT NULL,
     `email` VARCHAR(100) UNIQUE,
-    `password` CHAR(60),
+    `password` VARCHAR(128),
     `usuario_created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `usuario_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
