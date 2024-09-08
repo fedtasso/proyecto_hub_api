@@ -35,7 +35,7 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token):
                 return {"id" : None, "mensaje" : "Debe proporcionar un id valido"}
             
             if user_id_by_admin == None:
-                user_id = role_token
+                user_id = id_token
                 return {"id" : user_id}
             else:
                 user_id = user_id_by_admin
@@ -303,48 +303,10 @@ def mostrar_usuarios():
     finally:
         cursor.close()
 
+#Si admin envia id modifica el usuario indicado
+#Si admin no envia id, modifica su propia informacion
 
-@app.route('/usuario', methods=["DELETE"])
-@token_required
-def borrar_usuario(id_token, role_token):
-    datos= request.get_json(silent=True)
-    
-    try:
-        cursor=conexion.connection.cursor()
-
-        #verificar si es admin        
-        if datos:
-            user_id_by_admin = datos.get('id')     
-            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
-
-            if validated_user_id["id"] is None:
-                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
-            else:
-                id_user = validated_user_id["id"]
-        
-        else:
-            user_id_by_admin = None     
-            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
-
-            if validated_user_id["id"] is None:
-                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
-            else:
-                id_user = id_token
-        
-       
-        #Borrar usuario
-        sql = "DELETE FROM usuarios WHERE id = %s"
-        cursor.execute(sql,(id_user,))
-        conexion.connection.commit()
-        return jsonify({"mensaje":"Has eliminado el usuario"}), 200
-    
-    except Exception as ex:
-        return jsonify({"mensaje":"error al eliminar el usuario", "error": str(ex)}), 500
-    finally:
-        cursor.close()
-
-
-# ------- Update tabla usuarios -----------
+# ------- Update tablas --> usuarios, informacion, perfiles, lenguajes -----------
 @app.route('/usuario', methods=["PUT"])
 @token_required
 def actualizar_usuario(id_token, role_token):
@@ -354,8 +316,13 @@ def actualizar_usuario(id_token, role_token):
     
     nombre = datos.get('nombre')
     apellido = datos.get('apellido')
-    password = datos.get('password') #pasar a otro endpoint
     email = datos.get('email')
+    password = datos.get('password') #pasar a otro endpoint
+    informacion_adicional = datos.get('informacion_adicional')
+    image = datos.get('image')
+    perfiles = datos.get('perfiles')
+    lenguajes = datos.get('lenguajes')
+
     user_id_by_admin = datos.get('id')
       
     try: 
@@ -445,6 +412,46 @@ def actualizar_usuario(id_token, role_token):
         return jsonify({"mensaje": "Error al actualizar el usuario", "error": str(ex)}), 500
     finally:
         cursor.close()
+@app.route('/usuario', methods=["DELETE"])
+@token_required
+def borrar_usuario(id_token, role_token):
+    datos= request.get_json(silent=True)
+    
+    try:
+        cursor=conexion.connection.cursor()
+
+        #verificar si es admin        
+        if datos:
+            user_id_by_admin = datos.get('id')     
+            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+
+            if validated_user_id["id"] is None:
+                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
+            else:
+                id_user = validated_user_id["id"]
+        
+        else:
+            user_id_by_admin = None     
+            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+
+            if validated_user_id["id"] is None:
+                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
+            else:
+                id_user = id_token
+        
+       
+        #Borrar usuario
+        sql = "DELETE FROM usuarios WHERE id = %s"
+        cursor.execute(sql,(id_user,))
+        conexion.connection.commit()
+        return jsonify({"mensaje":"Has eliminado el usuario"}), 200
+    
+    except Exception as ex:
+        return jsonify({"mensaje":"error al eliminar el usuario", "error": str(ex)}), 500
+    finally:
+        cursor.close()
+
+
 
 # ------- CREAR ENDPOINT PARA CONTRASEÑA -----------
 
