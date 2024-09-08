@@ -1,9 +1,10 @@
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 import jwt
-import datetime
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import request, jsonify
+
 
 SECRET_KEY = 'Pedr@Pic4piedr4as' # usar Servicios de Gestión de Secretos en el despliege  o Uso de Variables de Entorno con el modulo current_app de Flask
 
@@ -17,27 +18,31 @@ def verify_password(hash: str, password: str) -> bool:
     try:
         ph.verify(hash, password)        
         return True
+    
     except VerifyMismatchError:
         return False
 
 
 # ------------  Generar y verificar token  ------------   
-def generate_auth_token(user_id: int) -> str:    
+def generate_auth_token(id_user: str, role: int) -> str:    
     payload = {
-        'user_id': user_id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)  # Token válido por 1 hora
+        'id_user': id_user,
+        'role': role, 
+        'exp': datetime.now(timezone.utc) + timedelta(hours=2)  # Token válido por 1 hora
     }
-    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')    
     return token
 
 def verify_auth_token(token: str) -> dict:    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        return payload
+        return {'status': 'success', 'data': payload}
+    
     except jwt.ExpiredSignatureError:
-        return {'status': 'error', 'message': 'Token expirado'}, 401        
+        return {'status': 'error', 'message': 'Token expirado'}        
+    
     except jwt.InvalidTokenError:
-        return {'status': 'error', 'message': 'Token inválido'}, 401
+        return {'status': 'error', 'message': 'Token inválido'}
     
 def token_required(f):
     @wraps(f)
@@ -51,8 +56,22 @@ def token_required(f):
             return jsonify({"mensaje": "Formato del token inválido"}), 401
 
         token = parts[1]
-        result = verify_auth_token(token)
-        if result.get('status') == 'error':
-            return jsonify({"mensaje": result.get('message')}), 401        
-        return f(*args, **kwargs)
+        token_verify = verify_auth_token(token)         
+        if token_verify.get('status') == 'error':
+            return jsonify({"mensaje": token_verify.get('message')}), 401   
+        
+        data = token_verify.get('data')   
+        id_user = data.get('id_user')
+        role = data.get('role') 
+
+        return f(id_user, role, *args, **kwargs)
     return decorator
+
+
+# ------------  Borrar  ------------   
+
+def admin_can_modify(role_token: int) -> bool:  
+    if role_token == 1:
+        return True       
+        
+

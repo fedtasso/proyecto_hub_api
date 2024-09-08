@@ -44,6 +44,38 @@ CREATE TABLE lenguajes(
     PRIMARY KEY (`id`)
 );
 
+CREATE TABLE roles_usuarios(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `usuario_id` INT, 
+    `rol_id` INT,
+    `rol_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE roles(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `rol` VARCHAR (50) NOT NULL,         
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE usuarios_proyectos(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `usuario_id` INT, 
+    `proyecto_id` INT,
+    `proyecto_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE proyectos(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `titulo` VARCHAR (50) NOT NULL, 
+    `descripcion` TEXT,
+    `url_deploy` VARCHAR (255),
+    `url_repository` VARCHAR (255),
+    `estado` VARCHAR (10),
+    PRIMARY KEY (`id`)
+);
+
 
 -- Añadir restricciones de clave foránea
 
@@ -59,10 +91,26 @@ ALTER TABLE lenguajes
 ADD CONSTRAINT fk_lenguajes_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
 
+ALTER TABLE roles_usuarios
+ADD CONSTRAINT fk__roles_usuarios__usuarios
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+ADD CONSTRAINT fk__roles_id__roles
+FOREIGN KEY (rol_id) REFERENCES roles(id);
 
--- -- Pruebas
--- INSERT INTO `usuarios` VALUES (0,'Federico',  'Tasso', 'fedtasso@gmail.com','abcd1234', NOW(), NOW()),
--- (0,'Bautista',  'Nar', 'bauti@gmail.com','abcd1234', NOW(), NOW());
+ALTER TABLE usuarios_proyectos
+ADD CONSTRAINT fk_usuarios_proyectos__usuarios
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+ADD CONSTRAINT fk_proyecto_id__proyecto
+FOREIGN KEY (proyecto_id) REFERENCES proyectos(id);
+
+
+INSERT INTO `roles` VALUES (0,'admin'), (0, 'user');
+
+-- AGREGAR USUARIO ADMIN MANUALMENTE A LA BBDD DESDE LA API PARA GENERAR HASH DE ADMIN
+-- LUEGO EJECUTAR LAS SIGUIENTES LINEAS
+
+
+UPDATE roles_usuarios SET rol_id = 1 WHERE id = 1;
 
 
 
