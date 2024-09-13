@@ -39,7 +39,7 @@ CREATE TABLE lenguajes(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
     `lenguaje` VARCHAR (50),
-    `nivel` INT,
+    -- `nivel` INT,
     `lenguaje_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
@@ -72,6 +72,7 @@ CREATE TABLE proyectos(
     `descripcion` TEXT,
     `url_deploy` VARCHAR (255),
     `url_repository` VARCHAR (255),
+    `lenguajes` Varchar (50),
     `estado` VARCHAR (10),
     PRIMARY KEY (`id`)
 );

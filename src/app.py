@@ -7,6 +7,8 @@ app=Flask(__name__)
 
 conexion=MySQL(app)
 
+#primer paso al crear bbdd crear admin para que sea id 1 y no quede un usuario sin mostrar cuando los buscamos en get usuarios
+
 
 # Hacer validaciones de datos entrantes
 # Hacer hash de contraseña
@@ -57,8 +59,8 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token):
     except Exception as ex:
         conexion.connection.rollback()
         raise ex    
-    finally:
-        cursor.close()
+    # finally:
+    #     cursor.close()
 
 
 def validar_datos_generica(cursor, id_user, validaciones):
@@ -66,7 +68,7 @@ def validar_datos_generica(cursor, id_user, validaciones):
         if args[0] is None:  # Si el valor es None, no validar
             continue
 
-        error_al_validar = funcion(args[0],args[1])
+        error_al_validar = funcion(*args)
         
         if error_al_validar:
             return error_al_validar
@@ -80,6 +82,14 @@ def validar_alpha(dato_usuario, campo_bbdd):
         return dato_invalido
     return None
 
+def validar_comma_en_list(dato_usuario, campo_bbdd):
+    for dato in dato_usuario:
+        if "," in dato:
+            dato_invalido = {"mensaje": f" La lista de {campo_bbdd} no cumple con el formato establecido", 
+                            "dato_invalido" : campo_bbdd}
+            return dato_invalido
+    return None
+
 
 def validar_alfanumerico(dato_usuario, campo_bbdd):
     if not dato_usuario.isalnum():
@@ -89,36 +99,56 @@ def validar_alfanumerico(dato_usuario, campo_bbdd):
     return None
 
 
-def validar_email(email, campo_bbdd):    
+def validar_email(email, campo_bbdd, cursor):  
+    
     patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     if not re.match(patron, email):
         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
         return dato_invalido
+        
+    try:        
+        cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+        if cursor.fetchone():
+            return {"mensaje": "El mail ya existe" }
+                
+    except Exception as ex:       
+        return {"mensaje": "Error al actualizar el usuario", "error": str(ex)} 
+    
     return None
         
 
-def verificar_con_bbdd(cursor, id_user, verificaciones):    
-    try:
+def verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd):    
 
-        datos_distintos = []
+    datos_distintos = {}
+    # datos_distintos_dic = {}
+    
+    for key, dato in verificar_con_bbdd.items():
         
-        for key, value in verificaciones.items():
-            dato_usuario = value[0]
-            campo_bbdd = value[1]
-            tabla = value[2]
+        if isinstance(dato, list):
+           
+            for value in dato:    
+               if value not in info_user_bbdd[key].split(","):
+                    if key not in datos_distintos:
+                        datos_distintos[key] = {"update": [], "delete": []}
+                    datos_distintos[key]["update"].append(value)
             
-            cursor.execute(f"SELECT {campo_bbdd} FROM {tabla} WHERE id = %s", (id_user,))
-            resultado_bbdd = cursor.fetchone()                     
-             
-            if dato_usuario != resultado_bbdd[0]:
-                datos_distintos.append(key)     
+            for value in info_user_bbdd[key].split(","):
+               if value not in dato:
+                    if key not in datos_distintos:
+                        datos_distintos[key] = {"update": [], "delete": []}
+                    datos_distintos[key]["delete"].append(value)
+            
 
-        if datos_distintos:
-            return datos_distintos
-                
-    except Exception as ex:       
-        return {"mensaje": "Error al actualizar el usuario", "error": str(ex)}
+        elif dato != info_user_bbdd[key]:
+            datos_distintos[key] = dato
+
+    return datos_distintos
+    
+
+    
+    
+  
    
 
     
@@ -209,9 +239,9 @@ def registrar():
         for perfil in perfiles:
             sql = "INSERT INTO perfiles (usuario_id, perfil) VALUES(%s, %s)"
             cursor.execute(sql,(usuario_id,perfil))
-        #clave=lenguaje, valor=nivel
-        for clave, valor in lenguajes.items():
-            cursor.execute("INSERT INTO lenguajes (usuario_id, lenguaje, nivel) VALUES (%s, %s, %s)", (usuario_id, clave, valor))
+        # insertar en tabla lenguajes
+        for lenguaje in lenguajes:
+            cursor.execute("INSERT INTO lenguajes (usuario_id, lenguaje) VALUES (%s, %s)", (usuario_id, lenguaje))
         # insetar en tabla roles
         rol_id = 2 # usuario por defecto
         cursor.execute("INSERT INTO roles_usuarios (usuario_id, rol_id) VALUES (%s, %s)", (usuario_id, rol_id))
@@ -236,13 +266,11 @@ def mostrar_usuarios():
                 u.id,
                 u.nombre,
                 u.apellido,
-                u.email,
-                u.password,
+                u.email,                
                 i.informacion_adicional,
                 i.image,
                 p.perfil,
-                l.lenguaje,
-                l.nivel,
+                l.lenguaje,                
                 ru.rol_id
             FROM 
                 usuarios u
@@ -266,12 +294,12 @@ def mostrar_usuarios():
             parametros.append(apellido)        
         # ejecutar consulta
         cursor.execute(sql, parametros)
-        datos = cursor.fetchall()        
+        datos = cursor.fetchall()  
         if datos:
             usuarios_dict = {}        
             for user in datos:
                 # verficar rol para mostrar
-                if user[10] == 1:
+                if user[8] == 1:
                     rol = "admin"
                 else:
                     rol = "usuario"
@@ -284,16 +312,16 @@ def mostrar_usuarios():
                         "nombre": user[1],
                         "apellido": user[2],
                         "email": user[3],                        
-                        "informacion": user[5],
-                        "image": user[6],
+                        "informacion": user[4],
+                        "image": user[5],
                         "perfiles": [], 
-                        "lenguaje_nivel": {},
+                        "lenguaje": [],
                         "rol": rol
                 }            
-                if user[7] is not None and user[7] not in usuarios_dict[user_id]["perfiles"]:
-                    usuarios_dict[user_id]["perfiles"].append(user[7])
-                if user[8] is not None and user[8] not in usuarios_dict[user_id]["lenguaje_nivel"]:
-                    usuarios_dict[user_id]["lenguaje_nivel"][user[8]] = user[9]         
+                if user[6] is not None and user[6] not in usuarios_dict[user_id]["perfiles"]:
+                    usuarios_dict[user_id]["perfiles"].append(user[6])
+                if user[7] is not None and user[7] not in usuarios_dict[user_id]["lenguaje"]:
+                    usuarios_dict[user_id]["lenguaje"].append(user[7])        
             usuarios = list(usuarios_dict.values())       
             return jsonify({"usuarios":usuarios,"mensaje":"Todos los usuarios"}), 200
         else:
@@ -318,13 +346,13 @@ def actualizar_usuario(id_token, role_token):
     apellido = datos.get('apellido')
     email = datos.get('email')
     password = datos.get('password') #pasar a otro endpoint
-    informacion_adicional = datos.get('informacion_adicional')
+    info_adicional = datos.get('info_adicional')
     image = datos.get('image')
     perfiles = datos.get('perfiles')
     lenguajes = datos.get('lenguajes')
-
     user_id_by_admin = datos.get('id')
-      
+
+  
     try: 
         cursor=conexion.connection.cursor()      
         conexion.connection.autocommit(False)
@@ -336,75 +364,173 @@ def actualizar_usuario(id_token, role_token):
              return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
         else:
             id_user = validated_user_id["id"]
-       
 
-        # verificar si la informacion es igual a la almacenada en BBDD
-        verificacion_con_bbdd = {}
-
-        if nombre:            
-            verificacion_con_bbdd["nombre"] = (nombre, "nombre", "usuarios")
-                   
-        if apellido:
-            verificacion_con_bbdd["apellido"] = (apellido, "apellido", "usuarios")
-
-        if email:
-            verificacion_con_bbdd["email"] = (email, "email", "usuarios")        
-           
-        resultado_verificacion = verificar_con_bbdd(cursor, id_user, verificacion_con_bbdd)
-
-        if not resultado_verificacion:
-            return jsonify ({"mensaje": "todos los datos ya existen"}), 400  
+        info_user_front = {"nombre": nombre, 
+                          "apellido": apellido, 
+                          "email": email, 
+                          "info_adicional": info_adicional, 
+                          "image": image, 
+                          "perfiles": perfiles, 
+                          "lenguajes": lenguajes
+                            }      
+               
+        cursor.execute("""
+                       SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.image, 
+                       GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
+                       GROUP_CONCAT(DISTINCT l.lenguaje SEPARATOR ',') AS lenguajes
+                       FROM usuarios u
+                       LEFT JOIN informacion i ON u.id = i.usuario_id
+                       LEFT JOIN perfiles p ON u.id = p.usuario_id
+                       LEFT JOIN lenguajes l ON u.id = l.usuario_id
+                       WHERE u.id = %s
+                       """, (id_user,))     
+        user_bbdd = cursor.fetchone()
       
-        if "error" in resultado_verificacion:
-            return jsonify(resultado_verificacion), 500
-     
 
+        info_user_bbdd = {"nombre":user_bbdd[0], 
+                          "apellido":user_bbdd[1], 
+                          "email":user_bbdd[2], 
+                          "info_adicional":user_bbdd[3], 
+                          "image":user_bbdd[4], 
+                          "perfiles":user_bbdd[5], 
+                          "lenguajes":user_bbdd[6]
+                            }
+        
+        # verificar si la informacion es igual a la almacenada en BBDD  
+        verificar_con_bbdd = {}
+       
+        for key, value in info_user_front.items():
+            if value:
+                verificar_con_bbdd[key] = value
+            
+        datos_actualizar = verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd)
+        
+        if not datos_actualizar:
+            return jsonify ({"mensaje": "todos los datos ya existen"}), 400  
+           
+        if "error" in datos_actualizar:
+            return jsonify(datos_actualizar), 500
+
+         
         #validar entradas
         validaciones = {}
 
-        if "nombre" in resultado_verificacion:
+        if "nombre" in datos_actualizar:
             validaciones["nombre"] = (validar_alpha, datos.get('nombre'), "nombre")
     
-        if "apellido" in resultado_verificacion:
+        if "apellido" in datos_actualizar:
             validaciones["apellido"] = (validar_alpha, datos.get('apellido'), "apellido")
         
-        if "email" in resultado_verificacion:
-            validaciones["email"] = (validar_email, datos.get('email'), "email")
-           
-          
-        resultado_validacion = validar_datos_generica(cursor, id_user, validaciones)
+        if "email" in datos_actualizar:
+            validaciones["email"] = (validar_email, datos.get('email'), "email", cursor)
+        
+        if "perfiles" in datos_actualizar:
+            validaciones["perfiles"] = (validar_comma_en_list, datos.get('perfiles'), "perfiles")
+        
+        if "lenguajes" in datos_actualizar:
+            validaciones["lenguajes"] = (validar_comma_en_list, datos.get('lenguajes'), "lenguajes")
+        
+        #validar que perfiles y lenguajes sea una lista y que dentro de cada string no haya comas
+       
+        resultado_validacion = validar_datos_generica(cursor, id_user, validaciones)        
         if resultado_validacion:
             return jsonify(resultado_validacion), 400
-        
+      
         # modificar datos de tabla usuarios
-        set_clause = []
-        params = []
+        set_clause = {
+              "usuarios": [],
+              "informacion": [],
+              "perfiles" : [],
+              "lenguajes" : []
+        }
+        params = {
+              "usuarios": [],
+              "informacion": [],
+              "perfiles" : [],
+              "lenguajes" : [], 
+        }
         
-        if "nombre" in validaciones:
-            set_clause.append("nombre = %s")
-            params.append(nombre)
+    
+        if "nombre" in datos_actualizar:
+            set_clause["usuarios"].append("nombre = %s")
+            params["usuarios"].append(nombre)
         
-        if "apellido" in validaciones:
-            set_clause.append("apellido = %s")
-            params.append(apellido)
+        if "apellido" in datos_actualizar:
+            set_clause["usuarios"].append("apellido = %s")
+            params["usuarios"].append(apellido)
 
-        if "email" in validaciones:
-            set_clause.append("email = %s")
-            params.append(email)
+        if "email" in datos_actualizar:                        
+            set_clause["usuarios"].append("email = %s")
+            params["usuarios"].append(email)
 
-        params.append(validated_user_id["id"])
-       
-        if not set_clause:
-            return jsonify({"mensaje": "No se proporcionaron campos para actualizar"}), 400
-       
-        # actualizar usuario        
-        sql = f"""UPDATE
-                    usuarios 
-                SET 
-                    {', '.join(set_clause)} 
-                WHERE 
-                    id = %s"""
-        cursor.execute(sql, params)
+        if "info_adicional" in datos_actualizar:
+            set_clause["informacion"].append("informacion_adicional = %s")
+            params["informacion"].append(info_adicional)
+
+        if "image" in datos_actualizar:
+            set_clause["informacion"].append("image = %s")
+            params["informacion"].append(image)
+
+   
+        # actualizar usuario
+        if set_clause["usuarios"]:
+            params["usuarios"].append(id_user)
+            sql = f"""UPDATE usuarios
+                            SET {', '.join(set_clause["usuarios"])} 
+                            WHERE id = %s"""
+            cursor.execute(sql, tuple(params["usuarios"]))
+
+        # actualizar informacion
+        if set_clause["informacion"]:
+            params["informacion"].append(id_user)
+            sql = f"""UPDATE informacion
+                            SET {', '.join(set_clause["informacion"])} 
+                            WHERE usuario_id = %s"""
+            cursor.execute(sql, tuple(params["informacion"]))
+
+        # actualizar perfiles
+        if "perfiles" in datos_actualizar:             
+            for value in datos_actualizar["perfiles"]["update"]:            
+                sql = """
+                    INSERT INTO
+                        perfiles (usuario_id, perfil)
+                    VALUES
+                        (%s, %s)                                                       
+                """                    
+                cursor.execute(sql,(id_user, value))      
+        
+        #borrar perfiles            
+            for value in datos_actualizar["perfiles"]["delete"]:                 
+                sql = """
+                    DELETE FROM
+                        perfiles 
+                    WHERE 
+                        usuario_id = %s  AND perfil = %s                                                     
+                """
+                cursor.execute(sql,(id_user, value)) 
+
+         # actualizar lenguajes
+        if "lenguajes" in datos_actualizar:             
+            for value in datos_actualizar["lenguajes"]["update"]:            
+                sql = """
+                    INSERT INTO
+                        lenguajes (usuario_id, lenguaje)
+                    VALUES
+                        (%s, %s)                                                       
+                """                    
+                cursor.execute(sql,(id_user, value))      
+        
+        #borrar lenguajes            
+            for value in datos_actualizar["lenguajes"]["delete"]:                 
+                sql = """
+                    DELETE FROM
+                        lenguajes 
+                    WHERE 
+                        usuario_id = %s  AND lenguaje = %s                                                     
+                """
+                cursor.execute(sql,(id_user, value)) 
+
+
         conexion.connection.commit()
         return jsonify({"mensaje": "Datos actualizados"}), 200        
     except Exception as ex:        
@@ -412,6 +538,9 @@ def actualizar_usuario(id_token, role_token):
         return jsonify({"mensaje": "Error al actualizar el usuario", "error": str(ex)}), 500
     finally:
         cursor.close()
+
+
+
 @app.route('/usuario', methods=["DELETE"])
 @token_required
 def borrar_usuario(id_token, role_token):
@@ -650,47 +779,47 @@ def borrar_perfiles():
 
 # ------- Update Delete tabla lenguajes   -----------
 
-@app.route('/lenguajes', methods=["PUT"])
-@token_required
-def actualizar_lenguajes():
-    email = request.args.get('email')
-    lenguajes_request = request.get_json() 
-    try:
-        cursor = conexion.connection.cursor()
-        conexion.connection.autocommit(False)
-        # seleccionar id desde email
-        cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
-        result = cursor.fetchone()
-        #comprobar si existe
-        if result is None:
-            return jsonify ({"mensaje":"usuario no encontrado"}), 404
-        id = result[0]
-        # comprobar si los lenguajes exiten en la bbdd
-        cursor.execute("SELECT lenguaje, nivel FROM lenguajes WHERE usuario_id = %s", (id,))
-        lenguaje_bbdd_dic = {clave: valor for clave, valor in cursor.fetchall()}
-        for lenguaje, nivel in lenguajes_request.items():
-            if lenguaje in lenguaje_bbdd_dic:
-                # Actualiar si el lenguaje ya existe y el nivel es diferente
-                if nivel != lenguaje_bbdd_dic[lenguaje]:
-                    cursor.execute("UPDATE lenguajes SET nivel = %s WHERE usuario_id = %s AND lenguaje = %s", (nivel, id, lenguaje ))
-            else:
-                #insertar si el lenguaje no existe
-                sql = ("""
-                        INSERT INTO
-                            lenguajes (usuario_id, lenguaje, nivel)
-                        VALUES
-                            (%s, %s, %s)
-                    """)                
-                cursor.execute(sql, (id, lenguaje, nivel))
-        for lenguaje in lenguaje_bbdd_dic:
-            if lenguaje not in lenguajes_request:
-                cursor.execute("DELETE FROM lenguajes WHERE usuario_id = %s AND lenguaje = %s ", (id, lenguaje))        
-        conexion.connection.commit()
-        return jsonify({"mensaje":"Has actualizado los lenguajes del usuario"})
-    except Exception as ex:
-        return jsonify({"mensaje":"error al actualizar los lenguajes del usuario", "error": str(ex)}), 500
-    finally:
-        cursor.close()
+# @app.route('/lenguajes', methods=["PUT"])
+# @token_required
+# def actualizar_lenguajes():
+#     email = request.args.get('email')
+#     lenguajes_request = request.get_json() 
+#     try:
+#         cursor = conexion.connection.cursor()
+#         conexion.connection.autocommit(False)
+#         # seleccionar id desde email
+#         cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+#         result = cursor.fetchone()
+#         #comprobar si existe
+#         if result is None:
+#             return jsonify ({"mensaje":"usuario no encontrado"}), 404
+#         id = result[0]
+#         # comprobar si los lenguajes exiten en la bbdd
+#         cursor.execute("SELECT lenguaje, nivel FROM lenguajes WHERE usuario_id = %s", (id,))
+#         lenguaje_bbdd_dic = {clave: valor for clave, valor in cursor.fetchall()}
+#         for lenguaje, nivel in lenguajes_request.items():
+#             if lenguaje in lenguaje_bbdd_dic:
+#                 # Actualiar si el lenguaje ya existe y el nivel es diferente
+#                 if nivel != lenguaje_bbdd_dic[lenguaje]:
+#                     cursor.execute("UPDATE lenguajes SET nivel = %s WHERE usuario_id = %s AND lenguaje = %s", (nivel, id, lenguaje ))
+#             else:
+#                 #insertar si el lenguaje no existe
+#                 sql = ("""
+#                         INSERT INTO
+#                             lenguajes (usuario_id, lenguaje, nivel)
+#                         VALUES
+#                             (%s, %s, %s)
+#                     """)                
+#                 cursor.execute(sql, (id, lenguaje, nivel))
+#         for lenguaje in lenguaje_bbdd_dic:
+#             if lenguaje not in lenguajes_request:
+#                 cursor.execute("DELETE FROM lenguajes WHERE usuario_id = %s AND lenguaje = %s ", (id, lenguaje))        
+#         conexion.connection.commit()
+#         return jsonify({"mensaje":"Has actualizado los lenguajes del usuario"})
+#     except Exception as ex:
+#         return jsonify({"mensaje":"error al actualizar los lenguajes del usuario", "error": str(ex)}), 500
+#     finally:
+#         cursor.close()
 
 
 
