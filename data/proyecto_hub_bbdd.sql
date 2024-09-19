@@ -22,10 +22,20 @@ CREATE TABLE informacion(
     `usuario_id` INT, 
     `informacion_adicional` TEXT,
     `image` VARCHAR(255),
+    -- `image_id` INT,
+    -- `hash_archivo` VARCHAR(255),
     `informacion_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
 
+-- CREATE TABLE imagenes(
+--     `id` INT NOT NULL AUTO_INCREMENT,
+--     `image_id` INT,     
+--     `file_path` VARCHAR(255),
+--     `hash_archivo` VARCHAR(255),
+--     `image_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--     PRIMARY KEY (`id`)
+-- );
 
 CREATE TABLE perfiles(
     `id` INT NOT NULL AUTO_INCREMENT,
@@ -35,12 +45,11 @@ CREATE TABLE perfiles(
     PRIMARY KEY (`id`)
 );
 
-CREATE TABLE lenguajes(
+CREATE TABLE tecnologias(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
-    `lenguaje` VARCHAR (50),
-    -- `nivel` INT,
-    `lenguaje_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `tecnologia` VARCHAR (50),
+    `tecnologia_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
 
@@ -72,7 +81,7 @@ CREATE TABLE proyectos(
     `descripcion` TEXT,
     `url_deploy` VARCHAR (255),
     `url_repository` VARCHAR (255),
-    `lenguajes` Varchar (50),
+    `tecnologia` Varchar (50),
     `estado` VARCHAR (10),
     PRIMARY KEY (`id`)
 );
@@ -84,12 +93,16 @@ ALTER TABLE informacion
 ADD CONSTRAINT fk_informacion_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
+-- ALTER TABLE informacion 
+-- ADD CONSTRAINT fk_imagen_informacion 
+-- FOREIGN KEY (image_id) REFERENCES imagenes(id);
+
 ALTER TABLE perfiles 
 ADD CONSTRAINT fk_perfiles_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
-ALTER TABLE lenguajes 
-ADD CONSTRAINT fk_lenguajes_usuarios 
+ALTER TABLE tecnologias
+ADD CONSTRAINT fk_tecnologias_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
 
 ALTER TABLE roles_usuarios
