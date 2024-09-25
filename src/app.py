@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from flask_mysqldb import MySQL 
 from security import hash_password, verify_password, generate_auth_token, verify_auth_token, token_required, admin_can_modify
 from config import config
-import os
+import os # para acceder a directorios
 import re # expresiones regulares
 from werkzeug.utils import secure_filename # seguridad de nombre en un archivo
 import uuid #dar nombre unico a archivos
@@ -18,8 +18,11 @@ conexion=MySQL(app)
 # En GET usuarios, desde el front se puede enviar solo nombre, solo apellido, nombre y apellido o ningun dato
 
 
-# endponit de admin para crear
+# funcion admin debe autoejecutarse una vez
+# hacer que admin solo pueda modificar contraseña
+# usuarios rol 2, si envian email retornar error en formato de id
 # contraseña en otro endponit
+
 # valida(comprueba si info es valida) verificar (busca en bbdd)
 
 
@@ -36,14 +39,14 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token):
         cursor=conexion.connection.cursor()
 
         #permisos de administrador
-        if role_token == 1:            
+        if role_token == 1:                        
+            if user_id_by_admin == None:
+                user_id = id_token
+                return {"id": None ,"id_admin" : user_id, "mensaje":"Debe proporcinar un id de usuario" }
             
             if user_id_by_admin < 1 or not isinstance(user_id_by_admin, int):
                 return {"id" : None, "mensaje" : "Debe proporcionar un id valido"}
-            
-            if user_id_by_admin == None:
-                user_id = id_token
-                return {"id" : user_id}
+                        
             else:
                 user_id = user_id_by_admin
                 user_id_bbdd = find_user_by_id(cursor, user_id)
@@ -54,8 +57,9 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token):
         
         #permisos de usuario
         else:
-            user_id_bbdd = find_user_by_id(cursor, id_token)
-            
+            if user_id_by_admin:
+                return {"id" : None, "mensaje" : "el formato de la consulta es erroneo"}
+            user_id_bbdd = find_user_by_id(cursor, id_token)            
             if user_id_bbdd is None:
                 return {"id" : None, "mensaje" : "Usuario no encontrado"}
             else:
@@ -264,6 +268,7 @@ def verificar_texto (texto):
 
 # ------- crear admin (ejecutar antes de acceder)-----------
 
+#funcion autoejecutable
 @app.route('/admin', methods=["POST"])
 def admin():
 
@@ -271,8 +276,8 @@ def admin():
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
         
-        nombre = "admin"
-        apellido = "admin"
+        nombre = "usuario"
+        apellido = "administrador"
         email = "admin@gmail.com"
         password = "clubdedesarroladores"
         # informacion_adicional = "administrador"
@@ -388,22 +393,33 @@ def registrar_json():
     informacion_adicional = datos.get('informacion_adicional')    
     perfiles = datos.get('perfiles')
     tecnologias = datos.get('tecnologias')  
-
+    print("llegamos")
     try: 
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
-            
+        print("llegamos1")    
         #validar entradas
         validaciones = {}
         
         if nombre:
             validaciones["nombre"] = (validar_alpha, nombre, "nombre")
-
+        else:
+            return jsonify ({"mensaje": " el nombre es requerido"})
+        
         if apellido:
             validaciones["apellido"] = (validar_alpha, apellido, "apellido")
-        
+        else:
+            return jsonify ({"mensaje": " el apellido es requerido"})
+
         if email:
             validaciones["email"] = (validar_y_verificar_email, email, "email", cursor)
+        else:
+            return jsonify ({"mensaje": " el email es requerido"})
+                
+        if password:
+            print("falta validar password")
+        else:
+            return jsonify ({"mensaje": " la contraseña es requerida"})
         
         if informacion_adicional:
             validaciones["informacion_adicional"] = (verificar_longitud_informacion, informacion_adicional, "informacion_adicional")
@@ -417,10 +433,10 @@ def registrar_json():
         resultado_validacion = validar_datos_generica(cursor, validaciones)        
         if resultado_validacion:
             return jsonify(resultado_validacion), 400
-    
+        print("llegamos2")
         # Hacer hash de contraseña
         hashed_password = hash_password(password)        
-        
+        print("llegamos")
         # Insertar en tabla usuarios
         sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (nombre, apellido, email, hashed_password))
@@ -474,13 +490,25 @@ def registrar():
         
         if nombre:
             validaciones["nombre"] = (validar_alpha, nombre, "nombre")
-
+        else:
+            return jsonify ({"mensaje": " el nombre es requerido"})
+        
         if apellido:
             validaciones["apellido"] = (validar_alpha, apellido, "apellido")
-        
+        else:
+            return jsonify ({"mensaje": " el apellido es requerido"})
+
         if email:
             validaciones["email"] = (validar_y_verificar_email, email, "email", cursor)
+        else:
+            return jsonify ({"mensaje": " el email es requerido"})
         
+        
+        if password:
+            print("falta validar password")
+        else:
+            return jsonify ({"mensaje": " la contraseña es requerida"})
+
         if informacion_adicional:
             validaciones["informacion_adicional"] = (verificar_longitud_informacion, informacion_adicional, "informacion_adicional")
 
@@ -566,6 +594,7 @@ def imagen(id_token, role_token):
     if validated_user_id["id"] is None:
             return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
     else:
+        #if hay id request enviar error de permisos 400        
         id_user = validated_user_id["id"]    
     
     try: 
@@ -912,21 +941,21 @@ def borrar_usuario(id_token, role_token):
     
     try:
         cursor=conexion.connection.cursor()
-
+        print(datos)
+      
+       
         #verificar si es admin o user       
-        if datos:
-            user_id_by_admin = datos.get('id')     
+        if datos:   
+            user_id_by_admin = datos.get('id')             
             validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
-
             if validated_user_id["id"] is None:
-                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
+                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404            
             else:
                 id_user = validated_user_id["id"]
         
         else:
             user_id_by_admin = None     
             validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
-
             if validated_user_id["id"] is None:
                 return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
             else:
@@ -944,28 +973,79 @@ def borrar_usuario(id_token, role_token):
     finally:
         cursor.close()
 
+# el user admin para cambiar su password debe enviar el id 1
+#-------------- actualizar_password -----------------
+@app.route('/actualizar_password', methods=["PUT"])
+@token_required
+def actualizar_password(id_token, role_token):
+    password = request.form.get("password")
+    user_id_by_admin = request.form.get("id")
+    try:
+        cursor = conexion.connection.cursor()
+        print(user_id_by_admin)
+        #verificar si es admin o user               
+        validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+        if validated_user_id["id"] is None:
+            return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404            
+        else:
+            id_user = validated_user_id["id"]
+        print(id_user)      
+        
+        if password:
+
+            #falta validar password
+         
+            #seleccionas pass de bbdd
+            cursor.execute("SELECT password FROM usuarios WHERE id = %s", (id_user,))
+            password_bbdd = cursor.fetchone()
+            
+            #verficar que el password sea distinto al almacenado
+            if verify_password(password_bbdd[0], password):
+                return jsonify ({"mensaje": "la contraseña es identica a la actual"}), 400
+            #actualizar password
+            else:
+                hashed_password = hash_password(password)                
+                cursor.execute("UPDATE usuarios SET password = %s where id = %s", (hashed_password, id_token))
+                conexion.connection.commit()
+                return jsonify ({"mensaje": "contraseña actualizada con exito"}), 200
+            
+    except Exception as ex:
+        return jsonify({"mensaje":"error al actualizar la contraseña", "error": str(ex)}), 500
+    
+    finally:
+        cursor.close()
+
+# @app.route('/actualizar_password', methods=["PUT"])
+# def actualizar_password():
+#     #recibir password request
+#     password = request.form.get('password', None)
+    
+#     if token in request: (el token tiene el id y el mail y dura 15 min)
+#         @token_required    
+#         def funcion():
+
+            
+            
+#             Hacer hash de contraseña
+#             if password:
+#                 hashed_password = hash_password(password)
+            
+#             actualizar pass
+
+#             #      
+            
+            
+            # recibir mail en request
+
+            # verificar mail en bbdd
+
+            # enviar mail con link. En el link enviar:
+            #     actualizar_password?=token...
+            
 
 
-# ------- CREAR ENDPOINT PARA CONTRASEÑA -----------
-
-# password = datos.get('password', None)  #Hacer esta actualizacion en una peticion separada por seguridad
-# Hacer hash de contraseña
-        # if password:
-        #     hashed_password = hash_password(password)
 
 
-######### A OTRO ENDPOINT #############
-# if password:
-#     cursor.execute("SELECT password FROM usuarios WHERE id = %s", (id_token,))
-#     user_pass_bbdd = cursor.fetchone()
-#     if not verify_password(user_pass_bbdd[0], password):
-            # "password": (validar_password, datos.get('password')),
-#         hashed_password = hash_password(password)
-#         cursor.execute("UPDATE usuarios SET password = %s where id = %s", (hashed_password, id_token))
-#         conexion.connection.commit()
-#         return jsonify ({"mensaje": "contraseña actualizada con exito"}), 200
-#     else:
-#         return jsonify ({"mensaje": "la contraseña es identica a la actual"}), 400
 
 
 
