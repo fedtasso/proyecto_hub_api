@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_mysqldb import MySQL 
-from security import hash_password, verify_password, generate_auth_token, verify_auth_token, token_required, admin_can_modify
+from security import hash_password, verify_password, generate_auth_token, verify_auth_token, token_required, admin_can_modify, token_id_recuperar_password
 from config import config
 import os # para acceder a directorios
 import re # expresiones regulares
@@ -8,20 +8,25 @@ from werkzeug.utils import secure_filename # seguridad de nombre en un archivo
 import uuid #dar nombre unico a archivos
 import hashlib # hash de imagen o archivo para evitar duplicados
 import glob # buscar nombre entre archivos
+from flask_mail import Mail, Message # enviar email
 
 app=Flask(__name__)
 
-conexion=MySQL(app)
+#cargar configuraciones
+app.config.from_object(config["development"])
 
-# Primer paso al crear bbdd crear admin para que sea id 1 y no quede un usuario sin mostrar cuando los buscamos en get usuarios
-# Si admin envia id modifica el usuario indicado, si admin no envia id modifica su propia informacion
+conexion=MySQL(app)
+mail = Mail(app)
+
+# El admin debe enviar el id del usuario que desea modificar
+# El admin debe enviar su id para poder modificar su contraseña.
 # En GET usuarios, desde el front se puede enviar solo nombre, solo apellido, nombre y apellido o ningun dato
 
 
-# funcion admin debe autoejecutarse una vez
+
 # hacer que admin solo pueda modificar contraseña
 # usuarios rol 2, si envian email retornar error en formato de id
-# contraseña en otro endponit
+
 
 # valida(comprueba si info es valida) verificar (busca en bbdd)
 
@@ -42,7 +47,7 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token):
         if role_token == 1:                        
             if user_id_by_admin == None:
                 user_id = id_token
-                return {"id": None ,"id_admin" : user_id, "mensaje":"Debe proporcinar un id de usuario" }
+                return {"id": None , "mensaje":"Debe proporcinar un id de usuario" }
             
             if user_id_by_admin < 1 or not isinstance(user_id_by_admin, int):
                 return {"id" : None, "mensaje" : "Debe proporcionar un id valido"}
@@ -134,6 +139,19 @@ def validar_email(email, campo_bbdd):
         dato_invalido = {"mensaje": f" El email no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
         return dato_invalido
+
+def verificar_email(email, cursor):
+    try:        
+        cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+        resultado = cursor.fetchone()
+        if resultado:
+            return {"mensaje": "El email se encuentra registrado", "id" : resultado[0]}
+        else:            
+            return {"mensaje": "El email no está registrado", "error" : "usuario no existe"}
+                
+    except Exception as ex:       
+        return {"mensaje": "Error al buscar el usuario, intente nuevamente", "error": str(ex)} 
+   
 
 
 def verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd):    
@@ -269,9 +287,7 @@ def verificar_texto (texto):
 # ------- crear admin (ejecutar antes de acceder)-----------
 
 #funcion autoejecutable
-@app.route('/admin', methods=["POST"])
-def admin():
-
+def crear_admin():
     try: 
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
@@ -280,9 +296,7 @@ def admin():
         apellido = "administrador"
         email = "admin@gmail.com"
         password = "clubdedesarroladores"
-        # informacion_adicional = "administrador"
-        # perfiles = "admin"
-        # tecnologias = "admin"
+
 
         hashed_password = hash_password(password)
         
@@ -290,39 +304,37 @@ def admin():
         admin_existe = cursor.fetchone()
 
         if admin_existe:
-            return jsonify({"mensaje": "no tiene permisos"})
-        else:
+            return {"mensaje": "el administrador existe"}
         
+        else:        
             # Insertar en tabla usuarios
             sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
             cursor.execute(sql, (nombre, apellido, email, hashed_password))
-            usuario_id = cursor.lastrowid
-
-            # # insertar en tabla informacion (me aseguro que usuario e informacion tengan el mismo id)
-            # sql = "INSERT INTO informacion (usuario_id, informacion_adicional) VALUES (%s, %s)"
-            # cursor.execute(sql, (usuario_id, informacion_adicional))
-            
-            # # insetar en tabla perfiles
-            # for perfil in perfiles:
-            #     sql = "INSERT INTO perfiles (usuario_id, perfil) VALUES(%s, %s)"
-            #     cursor.execute(sql,(usuario_id,perfil))
-        
-            # # insertar en tabla tecnologias
-            # for tecnologia in tecnologias:
-            #     cursor.execute("INSERT INTO tecnologias (usuario_id, tecnologia) VALUES (%s, %s)", (usuario_id, tecnologia))
+            usuario_id = cursor.lastrowid      
             
             # insetar en tabla roles rol admin
             rol_id = 1         
             cursor.execute("INSERT INTO roles_usuarios (usuario_id, rol_id) VALUES (%s, %s)", (usuario_id, rol_id))
             
             conexion.connection.commit()
-            return jsonify({"mensaje": "administrador registrado con exito", "id": usuario_id}),200    
+            return {"mensaje": "administrador registrado con exito", "id": usuario_id},200    
       
     except Exception as ex: 
         conexion.connection.rollback()
-        return jsonify({"mensaje": "Error al registrar el usuario", "error": str(ex)}), 500    
+        return {"mensaje": "Error al registrar el usuario", "error": str(ex)}, 500    
     finally:
         cursor.close()
+
+admin_existe = False 
+
+@app.before_request
+def setup():
+    global admin_existe # buscar alternativa para no usar gloval   
+    if admin_existe == False: 
+        resultado = crear_admin()
+        admin_existe = True
+        print(resultado)
+
 
 
 # ---------- login -----------
@@ -433,10 +445,10 @@ def registrar_json():
         resultado_validacion = validar_datos_generica(cursor, validaciones)        
         if resultado_validacion:
             return jsonify(resultado_validacion), 400
-        print("llegamos2")
+       
         # Hacer hash de contraseña
         hashed_password = hash_password(password)        
-        print("llegamos")
+       
         # Insertar en tabla usuarios
         sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (nombre, apellido, email, hashed_password))
@@ -480,7 +492,7 @@ def registrar():
     image = request.files.get('image')
     perfiles = request.form.getlist('perfiles[]')
     tecnologias = request.form.getlist('tecnologias[]')   
- 
+    print("imagen", image)
     try: 
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
@@ -633,10 +645,11 @@ def mostrar_usuarios():
                 u.apellido,
                 u.email,                
                 i.informacion_adicional,
-                i.image,
+                i.image,                
                 p.perfil,
                 t.tecnologia,                
-                ru.rol_id
+                ru.rol_id,
+                i.url_github                
             FROM 
                 usuarios u 
             LEFT JOIN 
@@ -681,7 +694,8 @@ def mostrar_usuarios():
                         "image": user[5],
                         "perfiles": [], 
                         "tecnologias": [],
-                        "rol": rol
+                        "rol": rol, 
+                        "url_github":user[9]
                 }            
                 if user[6] is not None and user[6] not in usuarios_dict[user_id]["perfiles"]:
                     usuarios_dict[user_id]["perfiles"].append(user[6])
@@ -973,6 +987,7 @@ def borrar_usuario(id_token, role_token):
     finally:
         cursor.close()
 
+
 # el user admin para cambiar su password debe enviar el id 1
 #-------------- actualizar_password -----------------
 @app.route('/actualizar_password', methods=["PUT"])
@@ -982,7 +997,7 @@ def actualizar_password(id_token, role_token):
     user_id_by_admin = request.form.get("id")
     try:
         cursor = conexion.connection.cursor()
-        print(user_id_by_admin)
+        
         #verificar si es admin o user               
         validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
         if validated_user_id["id"] is None:
@@ -1014,6 +1029,158 @@ def actualizar_password(id_token, role_token):
     
     finally:
         cursor.close()
+
+
+#---------------------------------------------------------------------
+
+@app.route('/recuperar_password', methods=["POST"])
+def recuperar_password():
+    email = request.form.get("email")
+
+    try:
+        cursor = conexion.connection.cursor()
+     
+        if email:
+            #validar formato de mail
+            email_invalido = validar_email(email, "email")
+            if email_invalido:
+                return jsonify (email_invalido)
+
+            #buscar en bbdd
+            mail_existe = verificar_email(email, cursor)
+            
+            if "error" in mail_existe:
+                return jsonify(mail_existe), 400
+            
+            usuario_id = mail_existe["id"]
+            
+            #crear token_id
+            token_id = token_id_recuperar_password(usuario_id)
+            
+            #almacenar los token en la bbdd
+            cursor.execute("INSERT INTO recuperar_password(usuario_id, token_id) VALUES (%s, %s)",(usuario_id, token_id))
+
+            #crear mensaje
+            msg = Message ("Recuperar contraseña",                  
+            recipients=[f"{email}"],
+            body = f"""
+Nos comunicamos desde el Club de Desarrolladores de Vicente López.
+            
+Para recuperar su contraseña acceda al siguiente link:
+
+http://127.0.0.1:5000/restablecer_password?token_id={token_id}
+
+Por favor, siga las instrucciones en la página para restablecer su contraseña.
+
+Este es un correo automático, por favor no responda.
+            """)
+
+            # Enviar correo
+            mail.send(msg) 
+
+            conexion.connection.commit()
+
+            return jsonify({"mensaje" : "email enviado con exito"}), 200
+            
+        else:
+             return jsonify({"mensaje":"debe proporcionar un email"}), 400
+        
+    except Exception as e:
+        return jsonify({"mensaje":"Error al enviar el correo", "error": {e}})
+
+
+
+@app.route('/restablecer_password', methods=["POST"])
+def restablecer_password():
+    token_id = request.args.get('token_id')
+    password = request.form.get('password')
+  
+    if not token_id or not password:
+        return jsonify({"mensaje" : "formato de recuperación incorrecto"}), 400
+    
+    token_valido = verify_auth_token(token_id)
+                
+    if token_valido["status"] == "error":
+        return jsonify (token_valido), 400
+    
+    # falta validar password
+    
+    try:   
+        cursor = conexion.connection.cursor()
+
+        usuario_id = token_valido["data"]["id_user"]
+
+        hashed_password = hash_password(password) 
+
+        #verificar si token fue usado
+        cursor.execute("SELECT usado FROM recuperar_password WHERE usuario_id = %s", (usuario_id,))
+        token_usado = cursor.fetchone()
+        
+        if token_usado[0] == 1:
+             return jsonify({"mensaje" : "token expirado"}), 500
+        
+        #cambiar contraseña
+        cursor.execute("UPDATE usuarios SET password = %s WHERE id = %s", (hashed_password, usuario_id))
+
+        #marcar token como usado
+        cursor.execute("UPDATE recuperar_password SET usado = %s WHERE usuario_id = %s", (1, usuario_id,))
+
+
+        conexion.connection.commit()
+
+        return jsonify({"mensaje" : "contraseña cambiada exitosamente"}), 200
+    
+    except Exception as e:
+         return jsonify({"mensaje":"Error al restablecer la contraseña", "error": str(e)}), 500
+    
+
+
+
+# otra manera de enviar mails
+    # try:
+    # # Conexión al servidor SMTP
+    #     with smtplib.SMTP('smtp.gmail.com', 587) as server:
+    #         server.starttls()  # Iniciar TLS
+    #         server.login('federico.tasso.musica@gmail.com', 'hysx xdrp ignc iqgq')
+    #         server.sendmail('federico.tasso.musica@gmail.com', 'fedtasso@gmail.com', msg.as_string())
+    #         print("Correo enviado exitosamente")
+    #         return jsonify({'exito': "exito"}), 500
+    # except Exception as e:
+    #     print(f"Error: {e}")
+    #     return jsonify ({f"error: {e}"})
+
+
+
+# @app.route('/recuperar_password', methods=["PUT"])
+# def recuperar_password():
+#     password = request.form.get("password")
+    
+#     try:
+#         cursor = conexion.connection.cursor()
+               
+#         if password:
+
+#             #falta validar password
+         
+#             #seleccionas pass de bbdd
+#             cursor.execute("SELECT password FROM usuarios WHERE id = %s", (id_user,))
+#             password_bbdd = cursor.fetchone()
+            
+#             #verficar que el password sea distinto al almacenado
+#             if verify_password(password_bbdd[0], password):
+#                 return jsonify ({"mensaje": "la contraseña es identica a la actual"}), 400
+#             #actualizar password
+#             else:
+#                 hashed_password = hash_password(password)                
+#                 cursor.execute("UPDATE usuarios SET password = %s where id = %s", (hashed_password, id_token))
+#                 conexion.connection.commit()
+#                 return jsonify ({"mensaje": "contraseña actualizada con exito"}), 200
+            
+#     except Exception as ex:
+#         return jsonify({"mensaje":"error al actualizar la contraseña", "error": str(ex)}), 500
+    
+#     finally:
+#         cursor.close()
 
 # @app.route('/actualizar_password', methods=["PUT"])
 # def actualizar_password():
@@ -1314,7 +1481,6 @@ def pagina_no_encontrada(error):
     return "<h1>La página no existe</h1>",404
 
 if __name__=='__main__':
-    app.config.from_object(config["development"])
     app.register_error_handler(404,pagina_no_encontrada) 
     app.run()
     

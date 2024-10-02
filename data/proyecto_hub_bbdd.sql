@@ -15,13 +15,20 @@ CREATE TABLE usuarios(
     PRIMARY KEY (`id`)
 );
 
-
+CREATE TABLE recuperar_password(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `usuario_id` INT,
+    `token_id` VARCHAR (255),
+    `usado` BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (`id`)
+);
 
 CREATE TABLE informacion(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
     `informacion_adicional` TEXT,
     `image` VARCHAR(255),
+    `url_github`VARCHAR (255),
     -- `image_id` INT,
     -- `hash_archivo` VARCHAR(255),
     `informacion_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -91,6 +98,10 @@ CREATE TABLE proyectos(
 
 ALTER TABLE informacion 
 ADD CONSTRAINT fk_informacion_usuarios 
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
+
+ALTER TABLE recuperar_password 
+ADD CONSTRAINT fk_recuperar_password_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
 -- ALTER TABLE informacion 

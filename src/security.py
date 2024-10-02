@@ -68,6 +68,15 @@ def token_required(f):
     return decorator
 
 
+def token_id_recuperar_password(id_user: str) -> str:    
+    payload = {
+        'id_user': id_user,        
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=10)
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')    
+    return token
+
+
 # ------------  Borrar  ------------   
 
 def admin_can_modify(role_token: int) -> bool:  
