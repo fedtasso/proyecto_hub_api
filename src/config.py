@@ -1,12 +1,12 @@
 import os
 
 class DevelopmentConfig():
-    DEBUG = True
+    DEBUG = False
     
     #configuracion BBDD
     MYSQL_HOST = "localhost"
     MYSQL_USER = "root"
-    MYSQL_PASSWORD = ""
+    MYSQL_PASSWORD = "root"
     MYSQL_DB = "proyecto_hub"
         
     #configuracion envio de email
