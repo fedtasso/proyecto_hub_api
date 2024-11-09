@@ -5,10 +5,12 @@ cffi==1.17.0
 click==8.1.7
 colorama==0.4.6
 Flask==3.0.3
+Flask-Mail==0.10.0
 Flask-MySQLdb==2.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.4
 MarkupSafe==2.1.5
 mysqlclient==2.2.4
 pycparser==2.22
+PyJWT==2.9.0
 Werkzeug==3.0.3
