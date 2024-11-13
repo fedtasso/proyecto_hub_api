@@ -292,7 +292,7 @@ def validar_url(url, campo_bbdd):
         dato_invalido = {"mensaje":"formato de url invalida", "dato invalido": campo_bbdd}
         return dato_invalido
     else:
-        return None
+        return None 
 
 
 
