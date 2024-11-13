@@ -15,7 +15,7 @@ class DevelopmentConfig():
     MAIL_USE_TLS = True
     MAIL_USE_SSL = False
     MAIL_USERNAME = 'federico.tasso.musica@gmail.com'
-    MAIL_PASSWORD = 'hysx xdrp ignc iqgq'
+    MAIL_PASSWORD = 'ndlr vqef etdj zrtw'
     MAIL_DEFAULT_SENDER = 'federico.tasso.musica@gmail.com'
     MAIL_TIMEOUT = 20
     MAIL_DEBUG = True 

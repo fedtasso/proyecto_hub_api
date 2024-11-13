@@ -28,7 +28,7 @@ def generate_auth_token(id_user: str, role: int) -> str:
     payload = {
         'id_user': id_user,
         'role': role, 
-        'exp': datetime.now(timezone.utc) + timedelta(hours=2)  # Token válido por 1 hora
+        'exp': datetime.now(timezone.utc) + timedelta(hours=2)  # Token válido por 1 hora - Quitar esto
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')    
     return token

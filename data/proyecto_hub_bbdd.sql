@@ -74,25 +74,35 @@ CREATE TABLE roles(
     PRIMARY KEY (`id`)
 );
 
-CREATE TABLE usuarios_proyectos(
+
+CREATE TABLE proyectos(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `titulo` VARCHAR (50) NOT NULL, 
+    `descripcion` TEXT, -- modificar a description
+    `url_deploy` VARCHAR (255),
+    `url_repository` VARCHAR (255),
+    -- `tecnologia` Varchar (50), borrar
+    `estado` VARCHAR (10),
+    `usuario_id_owner` INT,
+    -- `image` agregar imagen????
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE tecnologias_proyecto(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `proyecto_id` INT, 
+    `tecnologia` VARCHAR (50),
+    `tecnologia_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE usuarios_proyecto(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
     `proyecto_id` INT,
     `proyecto_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
-
-CREATE TABLE proyectos(
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `titulo` VARCHAR (50) NOT NULL, 
-    `descripcion` TEXT,
-    `url_deploy` VARCHAR (255),
-    `url_repository` VARCHAR (255),
-    `tecnologia` Varchar (50),
-    `estado` VARCHAR (10),
-    PRIMARY KEY (`id`)
-);
-
 
 -- Añadir restricciones de clave foránea
 
@@ -122,12 +132,15 @@ FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk__roles_id__roles
 FOREIGN KEY (rol_id) REFERENCES roles(id);
 
-ALTER TABLE usuarios_proyectos
-ADD CONSTRAINT fk_usuarios_proyectos__usuarios
+ALTER TABLE usuarios_proyecto
+ADD CONSTRAINT fk_usuarios_proyecto__usuarios
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_proyecto_id__proyecto
 FOREIGN KEY (proyecto_id) REFERENCES proyectos(id);
 
+ALTER TABLE tecnologias_proyecto
+ADD CONSTRAINT fk_tecnologias_proyecto
+FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE;
 
 INSERT INTO `roles` VALUES (0,'admin'), (0, 'user');
 
@@ -136,6 +149,3 @@ INSERT INTO `roles` VALUES (0,'admin'), (0, 'user');
 
 
 UPDATE roles_usuarios SET rol_id = 1 WHERE id = 1;
-
-
-

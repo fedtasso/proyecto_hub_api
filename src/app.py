@@ -9,21 +9,23 @@ import uuid #dar nombre unico a archivos
 import hashlib # hash de imagen o archivo para evitar duplicados
 import glob # buscar nombre entre archivos
 from flask_mail import Mail, Message # enviar email
+import validators
 
-app=Flask(__name__)
+
+app = Flask(__name__)
 
 #cargar configuraciones
 app.config.from_object(config["development"])
 
-conexion=MySQL(app)
+conexion = MySQL(app)
 mail = Mail(app)
 
 # El admin debe enviar el id del usuario que desea modificar
 # El admin debe enviar su id para poder modificar su contraseña.
 # En GET usuarios, desde el front se puede enviar solo nombre, solo apellido, nombre y apellido o ningun dato
 
-
-
+#----------Pendientes
+#revisar todo los status 200,300,400,500
 # hacer que admin solo pueda modificar contraseña
 # usuarios rol 2, si envian email retornar error en formato de id
 
@@ -37,6 +39,16 @@ mail = Mail(app)
 
 def find_user_by_id(cursor, user_id):
     cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
+    return cursor.fetchone()
+
+def find_user_by_email(cursor, email):#no estoy validando el formato del email
+    # patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    #     if not re.match(patron, email):
+    #         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
+    #                         "dato_invalido" : campo_bbdd}
+    #         return dato_invalido
+
+    cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
     return cursor.fetchone()
 
 def role_find_and_validate(user_id_by_admin, id_token, role_token):
@@ -76,7 +88,7 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token):
     # finally:
     #     cursor.close()
 
-
+# no hace falta el cursor???
 def validar_datos_generica(cursor, validaciones):
     for campo, (funcion, *args) in validaciones.items():
         if args[0] is None:  # Si el valor es None, no validar
@@ -90,13 +102,13 @@ def validar_datos_generica(cursor, validaciones):
 
 
 def validar_alpha(dato_usuario, campo_bbdd):
-    if not dato_usuario.isalpha():
+    if not bool(re.match(r"^[A-Za-z\s]+$", dato_usuario)):
         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
         return dato_invalido
     return None
 
-def validar_comma_en_list(dato_usuario, campo_bbdd):
+def validar_comma_en_list(dato_usuario, campo_bbdd):# no esta validando que no haya caracteres especiales
     for dato in dato_usuario:
         if "," in dato:
             dato_invalido = {"mensaje": f" La lista de {campo_bbdd} no cumple con el formato establecido", 
@@ -105,7 +117,7 @@ def validar_comma_en_list(dato_usuario, campo_bbdd):
     return None
 
 
-def validar_alfanumerico(dato_usuario, campo_bbdd):
+def validar_alfanumerico(dato_usuario, campo_bbdd): #no permite espacios
     if not dato_usuario.isalnum():
         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
@@ -199,8 +211,7 @@ def verificar_nombre_imagen(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     
 
-def validar_imagen(image):
-    
+def validar_imagen(image):    
     if 'image' not in request.files:
         return jsonify({"mensaje": "No se ha enviado ninguna imagen"}), 400
     
@@ -256,9 +267,8 @@ def imagen_validar_verificar_guardar(image, usuario_id):
     return file_path
 
 def verificar_longitud_informacion(informacion, campo_bbdd):
-
     # verificar que no use caracteres prohibidos
-    if verificar_texto(informacion):
+    if validar_texto(informacion):
         dato_invalido = {"mensaje":"La biografía contiene caracteres no permitidos.", "dato invalido": campo_bbdd}
         return dato_invalido
     
@@ -270,13 +280,19 @@ def verificar_longitud_informacion(informacion, campo_bbdd):
     
     return None
 
-def verificar_texto (texto):
+def validar_texto (texto):
     # Caracteres prohibidos en HTML y SQL 
     caracteres_no_permitidos = r'[<>\"\'&]|--|/\*|\*/|\x00-\x1F|\\'
     
     if re.search(caracteres_no_permitidos, texto):        
         return True
-    
+
+def validar_url(url, campo_bbdd):
+    if not validators.url(url):
+        dato_invalido = {"mensaje":"formato de url invalida", "dato invalido": campo_bbdd}
+        return dato_invalido
+    else:
+        return None
 
 
 
@@ -390,7 +406,7 @@ def login():
     finally:
         cursor.close()
 
-
+# agregar url_github a crear usuario
 # ------- crear usuario (json) sin imagen -----------
 @app.route('/registrar_json', methods=["POST"]) #falta verificar contraseña
 def registrar_json():
@@ -405,7 +421,7 @@ def registrar_json():
     informacion_adicional = datos.get('informacion_adicional')    
     perfiles = datos.get('perfiles')
     tecnologias = datos.get('tecnologias')  
-    print("llegamos")
+    
     try: 
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
@@ -437,10 +453,10 @@ def registrar_json():
             validaciones["informacion_adicional"] = (verificar_longitud_informacion, informacion_adicional, "informacion_adicional")
 
         if perfiles:
-            validaciones["perfiles"] = (validar_comma_en_list, perfiles, "perfiles")
+            validaciones["perfiles"] = (validar_comma_en_list, perfiles, "perfiles")# no esta validando que no haya caracteres especiales
         
         if tecnologias:
-            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")
+            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")# no esta validando que no haya caracteres especiales
 
         resultado_validacion = validar_datos_generica(cursor, validaciones)        
         if resultado_validacion:
@@ -452,6 +468,8 @@ def registrar_json():
         # Insertar en tabla usuarios
         sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (nombre, apellido, email, hashed_password))
+        
+        #recuperar id usuario
         usuario_id = cursor.lastrowid
 
         # insertar en tabla informacion (me aseguro que usuario e informacion tengan el mismo id)
@@ -480,7 +498,7 @@ def registrar_json():
     finally:
         cursor.close()
 
-
+# agregar url_github a crear usuario
 # ---------- crear usuario (form) con imagen -----------
 @app.route('/registrar', methods=["POST"]) #solo falta verificar password
 def registrar():   
@@ -490,9 +508,10 @@ def registrar():
     password = request.form.get('password')
     informacion_adicional = request.form.get('informacion_adicional')
     image = request.files.get('image')
+    url_github = request.files.get('url_github')
     perfiles = request.form.getlist('perfiles[]')
     tecnologias = request.form.getlist('tecnologias[]')   
-    print("imagen", image)
+    
     try: 
         cursor=conexion.connection.cursor()
         conexion.connection.autocommit(False)
@@ -515,7 +534,9 @@ def registrar():
         else:
             return jsonify ({"mensaje": " el email es requerido"})
         
-        
+        if url_github:
+            print("falta validar url")
+                
         if password:
             print("falta validar password")
         else:
@@ -525,10 +546,10 @@ def registrar():
             validaciones["informacion_adicional"] = (verificar_longitud_informacion, informacion_adicional, "informacion_adicional")
 
         if perfiles:
-            validaciones["perfiles"] = (validar_comma_en_list, perfiles, "perfiles")
+            validaciones["perfiles"] = (validar_comma_en_list, perfiles, "perfiles")# no esta validando que no haya caracteres especiales
         
-        if tecnologias:
-            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")
+        if tecnologias:#validar com otexto tambien????------------------------------------------------------------------
+            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")# no esta validando que no haya caracteres especiales
 
         resultado_validacion = validar_datos_generica(cursor, validaciones)        
         if resultado_validacion:
@@ -558,17 +579,16 @@ def registrar():
         sql = "INSERT INTO usuarios (nombre, apellido, email, password) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (nombre, apellido, email, hashed_password))
         usuario_id = cursor.lastrowid
-        print(image)
+        
         if image:
-            file_path = imagen_validar_verificar_guardar(image, usuario_id)
-            print(file_path)
+            file_path = imagen_validar_verificar_guardar(image, usuario_id)            
         else:  
             file_path = None
        
         # insertar en tabla informacion (me aseguro que usuario e informacion tengan el mismo id)       
         sql = "INSERT INTO informacion (usuario_id, informacion_adicional, image) VALUES (%s, %s, %s)"
         cursor.execute(sql, (usuario_id,informacion_adicional,file_path))
-        print(file_path)
+        
         # insetar en tabla perfiles
         for perfil in perfiles:
             sql = "INSERT INTO perfiles (usuario_id, perfil) VALUES(%s, %s)"
@@ -745,15 +765,15 @@ def actualizar_usuario(id_token, role_token):
             validaciones["informacion_adicional"] = (verificar_longitud_informacion, informacion_adicional, "informacion_adicional")
 
         if perfiles:
-            validaciones["perfiles"] = (validar_comma_en_list, perfiles, "perfiles")
+            validaciones["perfiles"] = (validar_comma_en_list, perfiles, "perfiles")# no esta validando que no haya caracteres especiales
         
         if tecnologias:
-            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")
+            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")# no esta validando que no haya caracteres especiales
 
         resultado_validacion = validar_datos_generica(cursor, validaciones)        
         if resultado_validacion:
             return jsonify(resultado_validacion), 400
-        print("validar datos",resultado_validacion)
+        
         #verificar rol        
         validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
 
@@ -771,7 +791,7 @@ def actualizar_usuario(id_token, role_token):
                           "perfiles": perfiles, 
                           "tecnologias": tecnologias
                             }      
-        print(info_user_front)
+        
         #buscar informacion del usuario en la bbdd     
         cursor.execute("""
                        SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, 
@@ -802,11 +822,12 @@ def actualizar_usuario(id_token, role_token):
                 verificar_con_bbdd[key] = value
             
         datos_actualizar = verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd)
+        
         if image:
             datos_actualizar["image"] = image
-        print("datos_actualizar",datos_actualizar)
+        
         if not datos_actualizar:
-            print(id_user)
+            
             return jsonify ({"mensaje": "todos los datos ya existen"}), 400  
            
         if "error" in datos_actualizar:
@@ -1133,6 +1154,183 @@ def restablecer_password():
     except Exception as e:
          return jsonify({"mensaje":"Error al restablecer la contraseña", "error": str(e)}), 500
     
+# ------------  CRUD tabla proyectos ------------------
+@app.route('/proyectos', methods=["POST"]) #terminado
+@token_required
+def proyecto(id_token, role_token):
+    
+    titulo = request.form.get('titulo')
+    description = request.form.get('description')
+    url_deploy = request.form.get('url_deploy')
+    url_repository = request.form.get('url_repository')
+    tecnologias = request.form.getlist('tecnologias[]')
+    estado = request.form.get('estado')
+    integrantes = request.form.getlist('integrantes[]')
+    user_id_by_admin = request.form.get('id')
+    
+    # buscar usuario y asignar rol
+    validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+    if validated_user_id["id"] is None:
+            return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
+           
+    id_user = validated_user_id["id"]    
+    
+    try: 
+        cursor=conexion.connection.cursor()
+        conexion.connection.autocommit(False)
+
+        validaciones = {}
+
+        if titulo:   
+            validaciones["titulo"] = (validar_alfanumerico, titulo, "titulo")# cambiar validacion a ya que no permite espacios
+        else:
+            return jsonify ({"mensaje": " el titulo es requerido"})
+
+        if description:
+            validaciones["description"] = (verificar_longitud_informacion, description, "description")
+
+        if url_deploy:
+            validaciones["url_deply"] = (validar_url, url_deploy, "url_deploy")
+
+        if url_repository:
+            validaciones["url_repository"] = (validar_url, url_repository, "url_repository")
+
+        if tecnologias:
+            validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")# no esta validando que no haya caracteres especiales
+
+        if estado:
+            validaciones["estado"] = (validar_alfanumerico, estado, "estado")# cambiar validacion a ya que no permite espacios
+
+
+        resultado_validacion = validar_datos_generica(cursor, validaciones)        
+        if resultado_validacion: #llamarla not_validated o algo asi
+            return jsonify(resultado_validacion), 400
+
+        #insertar en tabla proyectos
+        sql = """INSERT INTO proyectos(
+                    titulo, 
+                    descripcion, 
+                    url_deploy, 
+                    url_repository,
+                    estado,
+                    usuario_id_owner)
+                    VALUES (%s, %s, %s, %s, %s, %s)"""
+        cursor.execute(sql, (titulo, description, url_deploy, url_repository, estado, id_user))
+        
+        #recuperar id de proyecto
+        proyecto_id = cursor.lastrowid
+
+        # insertar en tabla tecnologias_proyecto
+        for tecnologia in tecnologias:
+            cursor.execute("INSERT INTO tecnologias_proyecto (proyecto_id, tecnologia) VALUES (%s, %s)", (proyecto_id, tecnologia))
+        
+        # insertar en tabla usuarios_proyecto
+        integrantes_id = [id_token]
+        for email in integrantes:            
+            usuario_id = find_user_by_email(cursor, email)#no estoy validando el formato del mail
+            if usuario_id == None:
+                return jsonify({"mensaje": f"el usuario {email} no se encuentra registrado", "error": "usuario invalido"})
+            integrantes_id.append(usuario_id[0])
+        
+        for usuario_id in integrantes_id:
+            cursor.execute("INSERT INTO usuarios_proyecto (usuario_id, proyecto_id) VALUES (%s, %s)", (usuario_id, proyecto_id))
+        
+
+        conexion.connection.commit()
+        return jsonify({"mensaje": "proyecto cargado con exito"}),200      
+    except Exception as ex: 
+        conexion.connection.rollback()
+        return jsonify({"mensaje": "Error al cargar el proyecto", "error": str(ex)}), 500    
+    finally:
+        cursor.close()
+
+
+
+@app.route('/proyectos', methods=["GET"]) #terminado
+def mostrar_proyecto():
+    titulo = request.args.get('titulo')
+    print(titulo)
+    try:
+        cursor=conexion.connection.cursor()
+        sql= """
+        SELECT
+            p.titulo,
+            p.descripcion,
+            p.url_deploy,
+            p.url_repository,
+            p.estado,
+            p.usuario_id_owner,
+            GROUP_CONCAT(DISTINCT up.usuario_id SEPARATOR ',') AS creadores,
+            GROUP_CONCAT(DISTINCT tp.tecnologia SEPARATOR ',') AS tecnologias
+        FROM 
+            proyectos p
+        LEFT JOIN
+            usuarios_proyecto up ON p.id = up.proyecto_id
+        LEFT JOIN
+            tecnologias_proyecto tp ON p.id = tp.proyecto_id
+        WHERE 
+            1 = 1       
+            """
+        parametros = []
+        if titulo:
+            sql += "AND titulo = %s"
+            parametros.append(titulo)
+        
+        sql +=  "GROUP BY p.id"
+
+        cursor.execute(sql, parametros)
+        datos = cursor.fetchall()
+        if datos:
+            proyectos = {}
+            for dato in datos:
+                proyectos[dato[0]] = { "titulo" : dato[0],
+                            "descripcion" : dato[1],
+                            "url_deploy" : dato[2],
+                            "url_repository" : dato[3],
+                            "estado" : dato[4],
+                            "usuario_id_owner" : dato[5],
+                            "creadores_id" : dato[6],
+                            "tecnologias" : dato[7]
+                }
+
+                for creador in proyectos["creadores"]:
+                    print("buscar nombre y apellido por id")
+                    
+            return jsonify({"proyectos" : proyectos})
+        else:
+            return jsonify({"mensaje": "proyecto no encontrado"}), 404
+    
+    except Exception as ex:         
+        return jsonify({"mensaje": "Error al buscar el proyecto", "error": str(ex)}), 500    
+    finally:
+        cursor.close()
+
+        
+# Endponit para modificar info de proyectos
+# PUT --> moficiar proyecto
+
+# Endponit para eliminar proyecto
+# PUT --> eliminar proyecto
+    #intentar hacer que elimine las relaciones de proyectos_usuarios a ese proyecto
+
+# ------------  CRUD tabla proyectos_usuarios ------------------
+# Endponit para modificar info de proyectos_usuarios (Serviria para agrerar un nuevo participante a un proyecto existente)
+# POST --> agregar nuevo usuario a proyecto_usuario
+
+# Endponit para eliminar info de proyectos_usuarios
+# PUT --> eliminar usuario de proyecto_usuario
+
+
+#consultas:
+#en tabla proyectos:
+# 1- Como hacer para que no haya proyectos duplicados? por nombre, por url deploy, por url_github?
+# 2- Quien puede modificar o borrar un proyecto? el creador del proyecto o todos los participantes?
+
+#en tabla usuarios_proyectos ( la tabla que indica que usuarios participaron en cada proyecto). Cuando un usuario crea un proyecto nuevo, en la tabla proyectos_usuarios se vincula a este usuario y todos los participantes al proyecto.
+# 3- Quien puede agregar o quitar un participante? el que creo el proyecto o todos los usuarios que son participantes del proyecto?
+
+
+
 
 
 
