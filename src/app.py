@@ -16,8 +16,11 @@ admin_existe = None
 conexion = MySQL(app)
 mail = Mail(app)
 
-#cargar configuraciones
-app.config.from_object(config["development"])
+# entorno
+app_config = config["app_config"]()
+
+app.config.from_object(app_config)
+print(app_config.HOST)
 
 #cargar endpoints
 app.register_blueprint(participantes.create_blueprint(conexion))
@@ -78,7 +81,8 @@ def pagina_no_encontrada(error):
 
 if __name__=='__main__':
     app.register_error_handler(404,pagina_no_encontrada) 
-    app.run(host="192.168.100.138", port=8001)
-    
+    # app.run(host="192.168.100.138", port=8001)
+    # app.run(host = app_config.HOST, port = app_config.PORT)
+    app.run()    
 
 
