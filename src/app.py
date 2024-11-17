@@ -1,7 +1,7 @@
 from flask import Flask, session
 from flask_mysqldb import MySQL 
 from security import hash_password
-from config import config
+from private.config import config
 from flask_mail import Mail
 from flask_cors import CORS
 
@@ -20,7 +20,7 @@ mail = Mail(app)
 app_config = config["app_config"]()
 
 app.config.from_object(app_config)
-print(app_config.HOST)
+# print(app_config)
 
 #cargar endpoints
 app.register_blueprint(participantes.create_blueprint(conexion))
@@ -81,8 +81,7 @@ def pagina_no_encontrada(error):
 
 if __name__=='__main__':
     app.register_error_handler(404,pagina_no_encontrada) 
-    # app.run(host="192.168.100.138", port=8001)
-    # app.run(host = app_config.HOST, port = app_config.PORT)
-    app.run()    
+    app.run(host = app_config.HOST, port = app_config.PORT)
+    
 
 
