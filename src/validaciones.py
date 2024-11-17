@@ -11,10 +11,9 @@ def find_user_by_id(cursor, user_id):
     cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
     return cursor.fetchone()
 
-def role_find_and_validate(user_id_by_admin, id_token, role_token):
+def role_find_and_validate(user_id_by_admin, id_token, role_token, cursor):
     try:
-        cursor=g.conexion.connection.cursor()
-
+        
         #permisos de administrador
         if role_token == 1:                        
             if user_id_by_admin == None:
@@ -133,25 +132,49 @@ def verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd):
     for key, dato in verificar_con_bbdd.items():
         
         if isinstance(dato, list):
+             datos_distintos = {}
+        
+    for key, dato in verificar_con_bbdd.items():
+        
+        if isinstance(dato, list):
            
             for value in dato:    
-               if info_user_bbdd[key] == None or value not in info_user_bbdd[key]:
+               if value not in info_user_bbdd[key].split(","):
                     if key not in datos_distintos:
                         datos_distintos[key] = {"update": [], "delete": []}
                     datos_distintos[key]["update"].append(value)
             
-            if info_user_bbdd[key] != None:
-                for value in info_user_bbdd[key]:
-                    if value not in dato:
-                            if key not in datos_distintos:
-                                datos_distintos[key] = {"update": [], "delete": []}
-                            datos_distintos[key]["delete"].append(value)
+            for value in info_user_bbdd[key].split(","):
+               if value not in dato:
+                    if key not in datos_distintos:
+                        datos_distintos[key] = {"update": [], "delete": []}
+                    datos_distintos[key]["delete"].append(value)
             
 
         elif dato != info_user_bbdd[key]:
             datos_distintos[key] = dato
 
     return datos_distintos
+           
+    #         for value in dato:    
+    #            if info_user_bbdd[key] == None or value not in info_user_bbdd[key]:
+    #                 if key not in datos_distintos:
+    #                     datos_distintos[key] = {"update": [], "delete": []}
+    #                 datos_distintos[key]["update"].append(value)
+            
+    #         if info_user_bbdd[key] != None:
+    #             for value in info_user_bbdd[key]:
+    #                 if value not in dato:
+    #                         if key not in datos_distintos:
+    #                             datos_distintos[key] = {"update": [], "delete": []}
+    #                         datos_distintos[key]["delete"].append(value)
+            
+
+    #     elif dato != info_user_bbdd[key]:
+    #         datos_distintos[key] = dato
+
+    # return datos_distintos
+
 
 def calcular_hash(image):
     # Lee el contenido del archivo de imagen

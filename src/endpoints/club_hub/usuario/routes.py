@@ -67,6 +67,8 @@ def create_blueprint(conexion,mail):
         finally:
             cursor.close()
 
+
+
     # ------- Update tablas --> usuarios, informacion, perfiles, tecnologias -----------
     @usuario_bp.route('/usuario', methods=["PUT"])
     @token_required
@@ -79,10 +81,11 @@ def create_blueprint(conexion,mail):
         github = request.form.get('github')
         informacion_adicional = request.form.get('informacion_adicional')
         imagenBase64 = request.form.get('image')
-        perfiles = request.form.get('perfiles[]').split(',')
-        tecnologias = request.form.get('tecnologias[]').split(',')   
+        perfiles = request.form.get('perfiles').split(',') 
+        tecnologias = request.form.get('tecnologias').split(',')
+        user_id_by_admin = request.form.get('id')
         
-
+        
         try: 
             cursor=conexion.connection.cursor()      
             conexion.connection.autocommit(False)
@@ -107,12 +110,22 @@ def create_blueprint(conexion,mail):
             
             if tecnologias:
                 validaciones["tecnologias"] = (validar_comma_en_list, tecnologias, "tecnologias")
-
+            
             resultado_validacion = validar_datos_generica(cursor, validaciones)        
+            
             if resultado_validacion:
                 return jsonify(resultado_validacion), 400
             print("validar datos",resultado_validacion)
-                        
+            
+            #verificar rol        
+            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
+            print("llegamos")
+            if validated_user_id["id"] is None:
+                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
+            else:
+                id_user = validated_user_id["id"]
+
+
             # comparar info del front con la bbdd
             #informacion desde el front
             info_user_front = {"nombre": nombre, 
@@ -123,37 +136,54 @@ def create_blueprint(conexion,mail):
                             "tecnologias": tecnologias,
                             "github": github
                             }      
-            print(info_user_front)
+            print("info_front " , info_user_front)
+
             #buscar informacion del usuario en la bbdd     
+            # cursor.execute("""
+            #             SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github
+            #             FROM usuarios u
+            #             LEFT JOIN informacion i ON u.id = i.usuario_id
+            #             WHERE u.id = %s
+            #             """, (id_token,))     
+            # user_bbdd = cursor.fetchone()
+
+            #buscar informacion del usuario en la bbdd
             cursor.execute("""
-                        SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github
-                        FROM usuarios u
-                        LEFT JOIN informacion i ON u.id = i.usuario_id
-                        WHERE u.id = %s
-                        """, (id_token,))     
+                       SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
+                       GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
+                       GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
+                       FROM usuarios u
+                       LEFT JOIN informacion i ON u.id = i.usuario_id
+                       LEFT JOIN perfiles p ON u.id = p.usuario_id
+                       LEFT JOIN tecnologias t ON u.id = t.usuario_id
+                       WHERE u.id = %s
+                       """, (id_user,))     
             user_bbdd = cursor.fetchone()
-        
             
+            print("user_bbdd :", user_bbdd)
             info_user_bbdd = {"nombre":user_bbdd[0], 
                             "apellido":user_bbdd[1], 
                             "email":user_bbdd[2], 
                             "info_adicional":user_bbdd[3],                                                  
-                            "github": user_bbdd[4]
+                            "github": user_bbdd[4],
+                            "perfiles":user_bbdd[5], 
+                            "tecnologias":user_bbdd[6]
                             }
             
-            cursor.execute("""
-                        SELECT GROUP_CONCAT(DISTINCT perfil SEPARATOR ',') from perfiles where usuario_id = %s
-                        """, (id_token,))     
-            user_bbdd = cursor.fetchone()
-            info_user_bbdd["perfiles"] = user_bbdd[0]
-            
-            cursor.execute("""
-                        SELECT GROUP_CONCAT(DISTINCT tecnologia SEPARATOR ',') from tecnologias where usuario_id = %s
-                        """, (id_token,))     
-            user_bbdd = cursor.fetchone()
-            info_user_bbdd["tecnologias"] = user_bbdd[0]
+            # cursor.execute("""
+            #             SELECT GROUP_CONCAT(DISTINCT perfil SEPARATOR ',') from perfiles where usuario_id = %s
+            #             """, (id_token,))     
+            # user_bbdd = cursor.fetchone()
+            # info_user_bbdd["perfiles"] = user_bbdd[0]
+            # print("perfiles_bbdd", info_user_bbdd["perfiles"])
+            # cursor.execute("""
+            #             SELECT GROUP_CONCAT(DISTINCT tecnologia SEPARATOR ',') from tecnologias where usuario_id = %s
+            #             """, (id_token,))     
+            # user_bbdd = cursor.fetchone()
+            # info_user_bbdd["tecnologias"] = user_bbdd[0]
             
             print("info bbdd", info_user_bbdd)
+
             # verificar si la informacion es igual a la almacenada en BBDD  
             verificar_con_bbdd = {}
         
@@ -162,9 +192,11 @@ def create_blueprint(conexion,mail):
                     verificar_con_bbdd[key] = value
                 
             datos_actualizar = verificacion_con_bbdd(id_token, verificar_con_bbdd, info_user_bbdd)
+
             if imagenBase64:
                 datos_actualizar["image"] = imagenBase64
             print("datos_actualizar",datos_actualizar)
+
             if not datos_actualizar:
                 print(id_token)
                 return jsonify ({"mensaje": "todos los datos ya existen"}), 400  
@@ -211,7 +243,10 @@ def create_blueprint(conexion,mail):
             if "image" in datos_actualizar:
                 set_clause["informacion"].append("image = %s")
                 params["informacion"].append(imagenBase64)
-        
+
+            if "github" in datos_actualizar:
+                set_clause["informacion"].append("url_github = %s")
+                params["informacion"].append(github)
 
     
             # actualizar usuario
@@ -282,6 +317,9 @@ def create_blueprint(conexion,mail):
             return jsonify({"mensaje": "Error al actualizar el usuario", "error": str(ex)}), 500
         finally:
             cursor.close()
+
+
+
 
     # ------- Delete usuario join todas las tablas   -----------
     @usuario_bp.route('/usuario', methods=["DELETE"])
