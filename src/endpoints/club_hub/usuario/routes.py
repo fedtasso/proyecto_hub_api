@@ -394,7 +394,7 @@ def create_blueprint(conexion,mail):
             cursor = conexion.connection.cursor()
             
             #verificar si es admin o user               
-            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
             if validated_user_id["id"] is None:
                 return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404            
             else:
