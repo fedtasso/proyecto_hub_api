@@ -23,26 +23,21 @@ def create_blueprint(conexion,mail):
                     u.email,                
                     i.informacion_adicional,
                     i.image,                
-                    p.perfil,
-                    t.tecnologia,                
                     ru.rol_id,
                     i.url_github                
                 FROM 
                     usuarios u 
                 LEFT JOIN 
                     informacion i ON u.id = i.usuario_id
-                LEFT JOIN
-                    perfiles p ON u.id = p.usuario_id
-                LEFT JOIN 
-                    tecnologias t ON u.id = t.usuario_id
                 LEFT JOIN 
                     roles_usuarios ru ON u.id = ru.usuario_id
                 WHERE u.id = %s
                 """
             
-            # ejecutar consulta
+            # Get Usuario
             cursor.execute(sql, (id_token,))
             datos = cursor.fetchall()  
+            
             if datos:
                 user = datos[0]
                 data_usuario = {
@@ -51,14 +46,37 @@ def create_blueprint(conexion,mail):
                     "email": user[3],                        
                     "informacion": user[4],
                     "imagen": user[5],
-                    "perfiles": [], 
+                    "url_github":user[7],
+                    "perfiles": [],
                     "tecnologias": [],
-                    "url_github":user[9]
                 }            
-                if user[6] is not None and user[6] not in data_usuario["perfiles"]:
-                    data_usuario["perfiles"].append(user[6])
-                if user[7] is not None and user[7] not in data_usuario["tecnologias"]:
-                    data_usuario["tecnologias"].append(user[7])        
+                
+            # Get Perfiles
+            sql = """
+                SELECT perfil FROM perfiles WHERE usuario_id = %s
+                """
+        
+            cursor.execute(sql, (id_token,))
+            perfiles = cursor.fetchall()  
+            
+            if perfiles:
+                for perfil,*y in perfiles: # *y esta porque devuelve una tupla y si solo fuese perfil el output seria: ('x',)
+                    data_usuario["perfiles"].append(perfil)
+                    
+            # Get Tecnologias
+            sql = """
+                SELECT tecnologia FROM tecnologias WHERE usuario_id = %s
+                """
+        
+            cursor.execute(sql, (id_token,))
+            tecnologias = cursor.fetchall()  
+            
+            if tecnologias:
+                for tecnologia,*y in tecnologias: # *y esta porque devuelve una tupla y si solo fuese perfil el output seria: ('x',)
+                    data_usuario["tecnologias"].append(tecnologia)
+
+            # Endpoint Return                        
+            if datos:
                 return jsonify({"datos":data_usuario,"mensaje":"Datos del usuario "+user[3]}), 200
             else:
                 return jsonify({"mensaje": "Usuario no encontrado"}), 404
