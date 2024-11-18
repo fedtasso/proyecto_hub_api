@@ -145,6 +145,20 @@ def create_blueprint(conexion,mail):
 
 
             # comparar info del front con la bbdd
+            
+            #buscar informacion del usuario en la bbdd
+            # cursor.execute("""
+            #            SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
+            #            GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
+            #            GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
+            #            FROM usuarios u
+            #            LEFT JOIN informacion i ON u.id = i.usuario_id
+            #            LEFT JOIN perfiles p ON u.id = p.usuario_id
+            #            LEFT JOIN tecnologias t ON u.id = t.usuario_id
+            #            WHERE u.id = %s
+            #            """, (id_user,))     
+            # user_bbdd = cursor.fetchone()
+            
             #informacion desde el front
             info_user_front = {"nombre": nombre, 
                             "apellido": apellido, 
@@ -157,48 +171,35 @@ def create_blueprint(conexion,mail):
             print("info_front " , info_user_front)
 
             #buscar informacion del usuario en la bbdd     
-            # cursor.execute("""
-            #             SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github
-            #             FROM usuarios u
-            #             LEFT JOIN informacion i ON u.id = i.usuario_id
-            #             WHERE u.id = %s
-            #             """, (id_token,))     
-            # user_bbdd = cursor.fetchone()
-
-            #buscar informacion del usuario en la bbdd
             cursor.execute("""
-                       SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
-                       GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
-                       GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
-                       FROM usuarios u
-                       LEFT JOIN informacion i ON u.id = i.usuario_id
-                       LEFT JOIN perfiles p ON u.id = p.usuario_id
-                       LEFT JOIN tecnologias t ON u.id = t.usuario_id
-                       WHERE u.id = %s
-                       """, (id_user,))     
+                        SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github
+                        FROM usuarios u
+                        LEFT JOIN informacion i ON u.id = i.usuario_id
+                        WHERE u.id = %s
+                        """, (id_token,))     
             user_bbdd = cursor.fetchone()
-            
+                       
             print("user_bbdd :", user_bbdd)
             info_user_bbdd = {"nombre":user_bbdd[0], 
                             "apellido":user_bbdd[1], 
                             "email":user_bbdd[2], 
                             "info_adicional":user_bbdd[3],                                                  
                             "github": user_bbdd[4],
-                            "perfiles":user_bbdd[5], 
-                            "tecnologias":user_bbdd[6]
+                            "perfiles":[], 
+                            "tecnologias":[]
                             }
             
-            # cursor.execute("""
-            #             SELECT GROUP_CONCAT(DISTINCT perfil SEPARATOR ',') from perfiles where usuario_id = %s
-            #             """, (id_token,))     
-            # user_bbdd = cursor.fetchone()
-            # info_user_bbdd["perfiles"] = user_bbdd[0]
-            # print("perfiles_bbdd", info_user_bbdd["perfiles"])
-            # cursor.execute("""
-            #             SELECT GROUP_CONCAT(DISTINCT tecnologia SEPARATOR ',') from tecnologias where usuario_id = %s
-            #             """, (id_token,))     
-            # user_bbdd = cursor.fetchone()
-            # info_user_bbdd["tecnologias"] = user_bbdd[0]
+            cursor.execute("""
+                        SELECT GROUP_CONCAT(DISTINCT perfil SEPARATOR ',') from perfiles where usuario_id = %s
+                        """, (id_token,))     
+            user_bbdd = cursor.fetchone()
+            info_user_bbdd["perfiles"] = user_bbdd[0]
+            print("perfiles_bbdd", info_user_bbdd["perfiles"])
+            cursor.execute("""
+                        SELECT GROUP_CONCAT(DISTINCT tecnologia SEPARATOR ',') from tecnologias where usuario_id = %s
+                        """, (id_token,))     
+            user_bbdd = cursor.fetchone()
+            info_user_bbdd["tecnologias"] = user_bbdd[0]
             
             print("info bbdd", info_user_bbdd)
 
