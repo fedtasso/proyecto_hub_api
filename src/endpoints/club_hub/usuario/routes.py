@@ -43,6 +43,7 @@ def create_blueprint(conexion,mail):
             # ejecutar consulta
             cursor.execute(sql, (id_token,))
             datos = cursor.fetchall()  
+            print("datos", datos)
             if datos:
                 user = datos[0]
                 data_usuario = {
@@ -149,14 +150,15 @@ def create_blueprint(conexion,mail):
 
             #buscar informacion del usuario en la bbdd
             cursor.execute("""
-                       SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
-                       GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
-                       GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
-                       FROM usuarios u
-                       LEFT JOIN informacion i ON u.id = i.usuario_id
-                       LEFT JOIN perfiles p ON u.id = p.usuario_id
-                       LEFT JOIN tecnologias t ON u.id = t.usuario_id
-                       WHERE u.id = %s
+                    SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
+                    GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
+                    GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
+                    FROM usuarios u
+                    LEFT JOIN informacion i ON u.id = i.usuario_id
+                    LEFT JOIN perfiles p ON u.id = p.usuario_id
+                    LEFT JOIN tecnologias t ON u.id = t.usuario_id
+                    WHERE u.id = %s
+                    GROUP BY u.id, u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github;
                        """, (id_user,))     
             user_bbdd = cursor.fetchone()
             

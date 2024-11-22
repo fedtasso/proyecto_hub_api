@@ -93,6 +93,10 @@ CREATE TABLE proyectos(
     PRIMARY KEY (`id`)
 );
 
+CREATE TABLE token(
+    
+)
+
 
 -- Añadir restricciones de clave foránea
 
