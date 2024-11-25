@@ -1,4 +1,4 @@
-from flask import Flask, session
+from flask import Flask
 from flask_mysqldb import MySQL 
 from security import hash_password
 from private.config import config

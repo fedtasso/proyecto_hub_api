@@ -46,6 +46,7 @@ def create_blueprint(conexion):
                 id_user = usuario[0]
                 rol = usuario[5]
                 token = "Bearer " + generate_auth_token(id_user, rol)
+                # TO DO guardar token en DB
                 return jsonify({"mensaje": "login exitoso", 
                                 "token":  token,
                                 "datos": {
@@ -235,7 +236,8 @@ def create_blueprint(conexion):
             cursor.execute("INSERT INTO roles_usuarios (usuario_id, rol_id) VALUES (%s, %s)", (usuario_id, rol_id))
                     
             token = "Bearer " + generate_auth_token(usuario_id, rol_id)
-            conexion.connection.commit()
+            # TO DO guardar token a DB
+            conexion.connection.commit() 
             response = jsonify({
                 "mensaje": "Usuario registrado",
                 "token":  token,
@@ -250,3 +252,8 @@ def create_blueprint(conexion):
             cursor.close()
 
     return auth_bp
+
+
+
+# endpoint deslogear borrar token
+
