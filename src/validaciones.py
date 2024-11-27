@@ -11,13 +11,15 @@ def find_user_by_id(cursor, user_id):
     cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
     return cursor.fetchone()
 
+
+
 def role_find_and_validate(user_id_by_admin, id_token, role_token, cursor):
     try:
         
         #permisos de administrador
         if role_token == 1:                        
             if user_id_by_admin == None:
-                user_id = id_token
+                user_id = id_token #no funcionaria esta linea con la lógica actual TO DO probar
                 return {"id": None , "mensaje":"Debe proporcinar un id de usuario" }
             
             if user_id_by_admin < 1 or not isinstance(user_id_by_admin, int):
@@ -48,6 +50,7 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token, cursor):
     #     cursor.close()
 
 
+
 def validar_datos_generica(cursor, validaciones):
     for campo, (funcion, *args) in validaciones.items():
         if args[0] is None:  # Si el valor es None, no validar
@@ -60,12 +63,14 @@ def validar_datos_generica(cursor, validaciones):
     return None
 
 
+
 def validar_alpha(dato_usuario, campo_bbdd):
     if not dato_usuario.isalpha():
         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
         return dato_invalido
     return None
+
 
 def validar_comma_en_list(dato_usuario, campo_bbdd):
     for dato in dato_usuario:
@@ -76,12 +81,14 @@ def validar_comma_en_list(dato_usuario, campo_bbdd):
     return None
 
 
+
 def validar_alfanumerico(dato_usuario, campo_bbdd):
     if not dato_usuario.isalnum():
         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
         return dato_invalido
     return None
+
 
 
 def validar_y_verificar_email(email, campo_bbdd, cursor):  
@@ -103,6 +110,7 @@ def validar_y_verificar_email(email, campo_bbdd, cursor):
     return None
 
 
+
 def validar_email(email, campo_bbdd):  
     
     patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
@@ -110,6 +118,8 @@ def validar_email(email, campo_bbdd):
         dato_invalido = {"mensaje": f" El email no cumple con el formato establecido", 
                          "dato_invalido" : campo_bbdd}
         return dato_invalido
+
+
 
 def verificar_email(email, cursor):
     try:        
@@ -123,6 +133,7 @@ def verificar_email(email, cursor):
     except Exception as ex:       
         return {"mensaje": "Error al buscar el usuario, intente nuevamente", "error": str(ex)} 
    
+
 
 
 def verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd):    
@@ -176,6 +187,7 @@ def verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd):
     # return datos_distintos
 
 
+
 def calcular_hash(image):
     # Lee el contenido del archivo de imagen
     file_data = image.read()
@@ -193,7 +205,8 @@ def calcular_hash(image):
 def verificar_nombre_imagen(filename):    
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    
+
+
 
 def validar_imagen(image, app):
     
@@ -251,6 +264,8 @@ def imagen_validar_verificar_guardar(image, usuario_id, app):
     
     return file_path
 
+
+
 def verificar_longitud_informacion(informacion, campo_bbdd):
 
     # verificar que no use caracteres prohibidos
@@ -274,3 +289,5 @@ def verificar_texto (texto):
         return True
     
 
+def validar_url ():
+    print("True")

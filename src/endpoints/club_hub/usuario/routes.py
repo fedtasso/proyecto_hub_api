@@ -7,8 +7,10 @@ def create_blueprint(conexion,mail):
     # Defining a blueprint
     usuario_bp = Blueprint('usuario', __name__)
 
-
-    #--- obtener datos de un usuario -----------
+    # -----------------------------------------------------------------
+    # ------------------  obtener datos de un usuario -----------------
+    # -----------------------------------------------------------------
+   
     @usuario_bp.route('/usuario', methods=["GET"])
     @token_required
     def get_usuario(id_token, role_token):
@@ -87,21 +89,29 @@ def create_blueprint(conexion,mail):
 
 
 
-    # ------- Update tablas --> usuarios, informacion, perfiles, tecnologias -----------
+    # -----------------------------------------------------------------------
+    # - actualizar usuario --> usuarios, informacion, perfiles, tecnologias -
+    # -----------------------------------------------------------------------    
     @usuario_bp.route('/usuario', methods=["PUT"])
     @token_required
     def actualizar_usuario(id_token, role_token):
 
-        # Se cambio para que use form
         nombre = request.form.get('nombre') 
         apellido = request.form.get('apellido')
         email = request.form.get('email')
         github = request.form.get('github')
         informacion_adicional = request.form.get('informacion_adicional')
         imagenBase64 = request.form.get('image')
-        perfiles = request.form.get('perfiles').split(',') 
-        tecnologias = request.form.get('tecnologias').split(',')
+        perfiles = request.form.get('perfiles') 
+        tecnologias = request.form.get('tecnologias')
         user_id_by_admin = request.form.get('id')
+
+        
+        if perfiles:
+            perfiles = perfiles.split(',')
+        
+        if tecnologias:
+            tecnologias = tecnologias.split(',')
         
         
         try: 
@@ -133,32 +143,17 @@ def create_blueprint(conexion,mail):
             
             if resultado_validacion:
                 return jsonify(resultado_validacion), 400
-            print("validar datos",resultado_validacion)
-            
+
+
             #verificar rol        
             validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
-            print("llegamos")
+        
             if validated_user_id["id"] is None:
                 return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
             else:
                 id_user = validated_user_id["id"]
 
 
-            # comparar info del front con la bbdd
-            
-            #buscar informacion del usuario en la bbdd
-            # cursor.execute("""
-            #            SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
-            #            GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
-            #            GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
-            #            FROM usuarios u
-            #            LEFT JOIN informacion i ON u.id = i.usuario_id
-            #            LEFT JOIN perfiles p ON u.id = p.usuario_id
-            #            LEFT JOIN tecnologias t ON u.id = t.usuario_id
-            #            WHERE u.id = %s
-            #            """, (id_user,))     
-            # user_bbdd = cursor.fetchone()
-            
             #informacion desde el front
             info_user_front = {"nombre": nombre, 
                             "apellido": apellido, 
@@ -166,13 +161,13 @@ def create_blueprint(conexion,mail):
                             "info_adicional": informacion_adicional, 
                             "perfiles": perfiles, 
                             "tecnologias": tecnologias,
-                            "github": github
+                            "github": github, 
+                            "image": imagenBase64 
                             }      
-            print("info_front " , info_user_front)
-
+            
             #buscar informacion del usuario en la bbdd     
             cursor.execute("""
-                    SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github,
+                    SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github, i.image,
                     GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
                     GROUP_CONCAT(DISTINCT t.tecnologia SEPARATOR ',') AS tecnologias
                     FROM usuarios u
@@ -180,34 +175,20 @@ def create_blueprint(conexion,mail):
                     LEFT JOIN perfiles p ON u.id = p.usuario_id
                     LEFT JOIN tecnologias t ON u.id = t.usuario_id
                     WHERE u.id = %s
-                    GROUP BY u.id, u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github;
+                    GROUP BY u.id, u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github, image;
                        """, (id_user,))     
             user_bbdd = cursor.fetchone()
-                       
-            print("user_bbdd :", user_bbdd)
+                      
             info_user_bbdd = {"nombre":user_bbdd[0], 
                             "apellido":user_bbdd[1], 
                             "email":user_bbdd[2], 
                             "info_adicional":user_bbdd[3],                                                  
                             "github": user_bbdd[4],
-                            "perfiles":[], 
-                            "tecnologias":[]
+                            "image" : user_bbdd[5],
+                            "perfiles": user_bbdd[6], 
+                            "tecnologias":user_bbdd[7]
                             }
             
-            # cursor.execute("""
-            #             SELECT GROUP_CONCAT(DISTINCT perfil SEPARATOR ',') from perfiles where usuario_id = %s
-            #             """, (id_token,))     
-            # user_bbdd = cursor.fetchone()
-            # info_user_bbdd["perfiles"] = user_bbdd[0]
-            # print("perfiles_bbdd", info_user_bbdd["perfiles"])
-            # cursor.execute("""
-            #             SELECT GROUP_CONCAT(DISTINCT tecnologia SEPARATOR ',') from tecnologias where usuario_id = %s
-            #             """, (id_token,))     
-            # user_bbdd = cursor.fetchone()
-            # info_user_bbdd["tecnologias"] = user_bbdd[0]
-            
-            # print("info bbdd", info_user_bbdd)
-
             # verificar si la informacion es igual a la almacenada en BBDD  
             verificar_con_bbdd = {}
         
@@ -217,18 +198,13 @@ def create_blueprint(conexion,mail):
                 
             datos_actualizar = verificacion_con_bbdd(id_token, verificar_con_bbdd, info_user_bbdd)
 
-            if imagenBase64:
-                datos_actualizar["image"] = imagenBase64
-            print("datos_actualizar",datos_actualizar)
-
             if not datos_actualizar:
-                print(id_token)
-                return jsonify ({"mensaje": "todos los datos ya existen"}), 400  
+                return jsonify ({"mensaje": "todos los datos ya existen"}), 200  
             
             if "error" in datos_actualizar:
                 return jsonify(datos_actualizar), 500
             
-            #verificar que el mail no este usado por otro usuario
+            #verificar que el mail no pertenezca a otro usuario
             if "email" in datos_actualizar:
                 if validar_y_verificar_email(email, "email", cursor):
                     return jsonify ({"mensaje": "el mail ya existe"}), 400 
@@ -288,9 +264,7 @@ def create_blueprint(conexion,mail):
                                 SET {', '.join(set_clause["informacion"])} 
                                 WHERE usuario_id = %s"""
                 cursor.execute(sql, tuple(params["informacion"]))
-                print(sql)
-                print(tuple(params["informacion"]))
-
+               
             # actualizar perfiles
             if "perfiles" in datos_actualizar:             
                 for value in datos_actualizar["perfiles"]["update"]:            
@@ -333,19 +307,20 @@ def create_blueprint(conexion,mail):
                     """
                     cursor.execute(sql,(id_token, value)) 
 
-
             conexion.connection.commit()
             return jsonify({"mensaje": "Datos actualizados"}), 200        
+
         except Exception as ex:        
             conexion.connection.rollback()
             return jsonify({"mensaje": "Error al actualizar el usuario", "error": str(ex)}), 500
+
         finally:
             cursor.close()
 
 
-
-
-    # ------- Delete usuario join todas las tablas   -----------
+    # -----------------------------------------------------------------
+    # -------------- Delete usuario join todas las tablas -------------
+    # -----------------------------------------------------------------
     @usuario_bp.route('/usuario', methods=["DELETE"])
     @token_required
     def borrar_usuario(id_token, role_token):
@@ -354,13 +329,11 @@ def create_blueprint(conexion,mail):
 
         try:
             cursor=conexion.connection.cursor()
-            print(datos)
-        
-        
+           
             #verificar si es admin o user       
             if datos:   
                 user_id_by_admin = datos.get('id')             
-                validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+                validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
                 if validated_user_id["id"] is None:
                     return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404            
                 else:
@@ -368,7 +341,7 @@ def create_blueprint(conexion,mail):
             
             else:
                 user_id_by_admin = None     
-                validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
+                validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
                 if validated_user_id["id"] is None:
                     return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
                 else:
@@ -387,9 +360,10 @@ def create_blueprint(conexion,mail):
             cursor.close()
 
 
-    # el user admin para cambiar su password debe enviar el id 1
-    #-------------- actualizar_password -----------------
-    @usuario_bp.route('/actualizar_password', methods=["PUT"])
+    # -----------------------------------------------------------------
+    # ----------------------  actualizar password---- -----------------
+    # -----------------------------------------------------------------    
+    @usuario_bp.route('/actualizar_password', methods=["PUT"]) # el user admin para cambiar su password debe enviar el id 1
     @token_required
     def actualizar_password(id_token, role_token):
 
@@ -404,13 +378,12 @@ def create_blueprint(conexion,mail):
                 return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404            
             else:
                 id_user = validated_user_id["id"]
-            print(id_user)      
             
             if password:
 
                 #falta validar password
             
-                #seleccionas pass de bbdd
+                #seleccionar pass de bbdd
                 cursor.execute("SELECT password FROM usuarios WHERE id = %s", (id_user,))
                 password_bbdd = cursor.fetchone()
                 
@@ -431,9 +404,11 @@ def create_blueprint(conexion,mail):
             cursor.close()
 
 
-    #---------------------------------------------------------------------
 
-    @usuario_bp.route('/recuperar_password', methods=["POST"])
+    # -----------------------------------------------------------------
+    # -----------------------  recuperar password ---------------------
+    # ------------------------------paso 1 ----------------------------    
+    @usuario_bp.route('/recuperar_password', methods=["POST"]) #TO DO ver nombres acordados con Bauti
     def recuperar_password():
         email = request.form.get("email")
 
@@ -491,6 +466,10 @@ def create_blueprint(conexion,mail):
 
 
 
+
+    # -----------------------------------------------------------------
+    # -----------------------  recuperar password ---------------------
+    # ------------------------------paso 2 ----------------------------    
     @usuario_bp.route('/restablecer_password', methods=["POST"])
     def restablecer_password():
 
@@ -535,40 +514,8 @@ def create_blueprint(conexion,mail):
         except Exception as e:
             return jsonify({"mensaje":"Error al restablecer la contraseña", "error": str(e)}), 500
         
-    # ---------- actualizar imagen de tabla informacion (form)-----------
-    @usuario_bp.route('/image', methods=["PUT"]) #terminado
-    @token_required
-    def imagen(id_token, role_token):
 
-        image = request.files.get('image')
-        user_id_by_admin = request.form.get('id')
-        
-        # buscar usuario y asignar rol
-        validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token)
-        if validated_user_id["id"] is None:
-                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
-        else:
-            #if hay id request enviar error de permisos 400        
-            id_user = validated_user_id["id"]    
-        
-        try: 
-            cursor=conexion.connection.cursor()
-            conexion.connection.autocommit(False)
 
-            if image:
-                file_path = imagen_validar_verificar_guardar(image, id_token)
-            else:
-                return jsonify({"mensaje": "debe seleccionar una imagen",}), 500    
-            # insertar imagen en tabla informacion
-            sql = "UPDATE informacion SET image = %s WHERE usuario_id = %s"
-            cursor.execute(sql, (file_path, id_user))
-                
-            conexion.connection.commit()
-            return jsonify({"mensaje": "imagen cargada con exito"}),200      
-        except Exception as ex: 
-            conexion.connection.rollback()
-            return jsonify({"mensaje": "Error al cargar la imagen", "error": str(ex)}), 500    
-        finally:
-            cursor.close()
+
 
     return usuario_bp

@@ -4,15 +4,19 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import request, jsonify
+from private.config import config
 
 
-SECRET_KEY = 'Pedr@Pic4piedr4as' # usar Servicios de Gestión de Secretos en el despliege  o Uso de Variables de Entorno con el modulo current_app de Flask
+SECRET_KEY = config["app_config"].SECRET_KEY
 
 ph = PasswordHasher()
+
+
 
 # ------------  hash de pass ------------  
 def hash_password(password: str) -> str:
     return ph.hash(password)
+
 
 def verify_password(hash: str, password: str) -> bool:
     try:
@@ -23,15 +27,19 @@ def verify_password(hash: str, password: str) -> bool:
         return False
 
 
+
+
 # ------------  Generar y verificar token  ------------   
 def generate_auth_token(id_user: str, role: int) -> str:    
     payload = {
         'id_user': id_user,
         'role': role, 
-        'exp': datetime.now(timezone.utc) + timedelta(hours=2)  # Token válido por 1 hora
+        'generated_at': datetime.now(timezone.utc).isoformat()
     }
+    
     token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')    
     return token
+
 
 def verify_auth_token(token: str) -> dict:    
     try:
@@ -44,6 +52,9 @@ def verify_auth_token(token: str) -> dict:
     except jwt.InvalidTokenError:
         return {'status': 'error', 'message': 'Token inválido'}
     
+    
+
+
 def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
@@ -68,6 +79,8 @@ def token_required(f):
     return decorator
 
 
+
+
 def token_id_recuperar_password(id_user: str) -> str:    
     payload = {
         'id_user': id_user,        
@@ -75,6 +88,8 @@ def token_id_recuperar_password(id_user: str) -> str:
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')    
     return token
+
+
 
 
 # ------------  Borrar  ------------   

@@ -45,7 +45,7 @@ def create_blueprint(conexion):
             # ejecutar consulta
             cursor.execute(sql, parametros)
             datos = cursor.fetchall()  
-            print(datos)
+            
             if datos:
                 usuarios_dict = {}        
                 for user in datos:

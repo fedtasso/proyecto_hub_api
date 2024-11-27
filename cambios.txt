@@ -1,0 +1,31 @@
+
+Usuarios
+    - borré el endpoint actualizar imagen (ya se hace desde actualizar usuario y tiene la lógica anterior de guardar en carpeta)
+    - modifiqué el endpoint actualizar usuario para hacer una sola consulta con GROUP BY
+
+Auth
+    - Borré endpoint registrar_JSON
+    - INSERT token a tabla sesiones
+    - endpoint sign_out
+
+
+app
+    - pasé los datos del administrados a carpeta privada
+
+security
+    - pasé SECRET_KEY a config
+    - token ya no expira y genera un token distindo en cada login basado en fecha
+
+config
+    - datos de administrador
+    - mail del club
+    - SECRET_KEY
+
+Base de datos:
+    -Agregadas todas las tablas
+
+
+proyectos:
+    - endpoint crear proyectos
+    - endpoint mostrar proyectos
+    - enpoint agregar participante a proyecto

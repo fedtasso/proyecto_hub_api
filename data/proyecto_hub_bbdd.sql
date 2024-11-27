@@ -15,22 +15,12 @@ CREATE TABLE usuarios(
     PRIMARY KEY (`id`)
 );
 
-CREATE TABLE recuperar_password(
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `usuario_id` INT,
-    `token_id` VARCHAR (255),
-    `usado` BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY (`id`)
-);
-
 CREATE TABLE informacion(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
     `informacion_adicional` TEXT,
-    `image` VARCHAR(255),
+    `image` MEDIUMTEXT,
     `url_github`VARCHAR (255),
-    -- `image_id` INT,
-    -- `hash_archivo` VARCHAR(255),
     `informacion_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
@@ -74,10 +64,26 @@ CREATE TABLE roles(
     PRIMARY KEY (`id`)
 );
 
+CREATE TABLE sesiones(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `usuario_id` INT,
+    `token_sesion` VARCHAR (255),
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE recuperar_password(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `usuario_id` INT,
+    `token_recuperar` VARCHAR (255),
+    `usado` TINYINT(1) DEFAULT 0,
+    PRIMARY KEY (`id`)
+);
+
 CREATE TABLE usuarios_proyectos(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
     `proyecto_id` INT,
+    `admin` TINYINT(1) DEFAULT 0,
     `proyecto_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
@@ -88,24 +94,23 @@ CREATE TABLE proyectos(
     `descripcion` TEXT,
     `url_deploy` VARCHAR (255),
     `url_repository` VARCHAR (255),
-    `tecnologia` Varchar (50),
     `estado` VARCHAR (10),
+    `permite_sumarse`TINYINT (1) DEFAULT 0,
     PRIMARY KEY (`id`)
 );
 
-CREATE TABLE token(
-    
-)
-
+CREATE TABLE tecnologias_proyectos (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `proyecto_id` INT, 
+    `tecnologia` VARCHAR (50),
+    `tecnologia_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);
 
 -- Añadir restricciones de clave foránea
 
 ALTER TABLE informacion 
 ADD CONSTRAINT fk_informacion_usuarios 
-FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
-
-ALTER TABLE recuperar_password 
-ADD CONSTRAINT fk_recuperar_password_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
 -- ALTER TABLE informacion 
@@ -126,18 +131,26 @@ FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk__roles_id__roles
 FOREIGN KEY (rol_id) REFERENCES roles(id);
 
+ALTER TABLE sesiones
+ADD CONSTRAINT fk_sesiones_usuarios 
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
+
+ALTER TABLE recuperar_password 
+ADD CONSTRAINT fk_recuperar_password_usuarios 
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
+
 ALTER TABLE usuarios_proyectos
 ADD CONSTRAINT fk_usuarios_proyectos__usuarios
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_proyecto_id__proyecto
 FOREIGN KEY (proyecto_id) REFERENCES proyectos(id);
 
+ALTER TABLE tecnologias_proyectos
+ADD CONSTRAINT fk_tecnologias_proyectos 
+FOREIGN KEY (proyecto_id) REFERENCES proyectos(id);
+
 
 INSERT INTO `roles` VALUES (0,'admin'), (0, 'user');
-
--- AGREGAR USUARIO ADMIN MANUALMENTE A LA BBDD DESDE LA API PARA GENERAR HASH DE ADMIN
--- LUEGO EJECUTAR LAS SIGUIENTES LINEAS
-
 
 UPDATE roles_usuarios SET rol_id = 1 WHERE id = 1;
 
