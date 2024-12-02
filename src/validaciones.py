@@ -290,4 +290,5 @@ def verificar_texto (texto):
     
 
 def validar_url ():
+    # TO DO
     print("True")

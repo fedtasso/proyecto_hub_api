@@ -1,4 +1,14 @@
+1/12/2024
+proyectos
+    - endpoint salir proyecto
+    
+security
+    -cree blueprint para pasar la conexion y verificar desde el decorador si la sesion (token) es valida
 
+
+
+
+27/11
 Usuarios
     - borré el endpoint actualizar imagen (ya se hace desde actualizar usuario y tiene la lógica anterior de guardar en carpeta)
     - modifiqué el endpoint actualizar usuario para hacer una sola consulta con GROUP BY

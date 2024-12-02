@@ -9,6 +9,7 @@ from endpoints.club_hub.auth import routes as auth
 from endpoints.club_hub.usuario import routes as usuario
 from endpoints.club_hub.participantes import routes as participantes
 from endpoints.club_hub.proyectos import routes as proyectos
+from security import security_blueprint
 
 app=Flask(__name__)
 CORS(app)
@@ -28,6 +29,7 @@ app.register_blueprint(participantes.create_blueprint(conexion))
 app.register_blueprint(auth.create_blueprint(conexion))
 app.register_blueprint(usuario.create_blueprint(conexion,mail))
 app.register_blueprint(proyectos.create_blueprint(conexion))
+app.register_blueprint(security_blueprint(conexion))
 
 #funcion autoejecutable
 def crear_admin():
@@ -77,7 +79,13 @@ def setup():
     if admin_existe == None: 
         admin = crear_admin()
         admin_existe = True
-       
+
+def crear_cursor():
+    try:
+        cursor = conexion.connection.cursor()
+        return cursor
+    except Exception as ex:
+        return {"mensaje": "Error al crear el cursor", "error": str(ex)}, 500        
     
 def pagina_no_encontrada(error):
     return "<h1>La página no existe</h1>",404

@@ -50,6 +50,9 @@ CREATE TABLE tecnologias(
     PRIMARY KEY (`id`)
 );
 
+
+
+
 CREATE TABLE roles_usuarios(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
@@ -79,15 +82,6 @@ CREATE TABLE recuperar_password(
     PRIMARY KEY (`id`)
 );
 
-CREATE TABLE usuarios_proyectos(
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `usuario_id` INT, 
-    `proyecto_id` INT,
-    `admin` TINYINT(1) DEFAULT 0,
-    `proyecto_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`)
-);
-
 CREATE TABLE proyectos(
     `id` INT NOT NULL AUTO_INCREMENT,
     `titulo` VARCHAR (50) NOT NULL, 
@@ -106,6 +100,16 @@ CREATE TABLE tecnologias_proyectos (
     `tecnologia_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
+
+CREATE TABLE usuarios_proyectos(
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `usuario_id` INT, 
+    `proyecto_id` INT,
+    `admin` TINYINT(1) DEFAULT 0,
+    `proyecto_updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);
+
 
 -- Añadir restricciones de clave foránea
 

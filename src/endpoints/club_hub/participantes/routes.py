@@ -9,7 +9,8 @@ def create_blueprint(conexion):
         apellido = request.args.get('apellido')
         
         try:
-            cursor=conexion.connection.cursor()
+            cursor=conexion.connection.cursor()            
+
             sql = """
                 SELECT 
                     u.id,

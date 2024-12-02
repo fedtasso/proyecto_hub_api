@@ -1,22 +1,27 @@
 from flask import jsonify, request, Blueprint, Flask
-from security import hash_password, verify_password, verify_auth_token, token_required, token_id_recuperar_password
+from security import hash_password, verify_password, verify_auth_token_with_jwt, token_id_recuperar_password, security_blueprint
 from validaciones import *
 
 def create_blueprint(conexion,mail):
 
     # Defining a blueprint
     usuario_bp = Blueprint('usuario', __name__)
+    
+    security_bp = security_blueprint(conexion)
+    usuario_bp.register_blueprint(security_bp)
 
     # -----------------------------------------------------------------
     # ------------------  obtener datos de un usuario -----------------
     # -----------------------------------------------------------------
    
     @usuario_bp.route('/usuario', methods=["GET"])
-    @token_required
+    @security_bp.token_required
     def get_usuario(id_token, role_token):
+        token = request.headers.get('Authorization')
         
         try:
             cursor=conexion.connection.cursor()
+
             sql = """
                 SELECT 
                     u.id,
@@ -93,7 +98,7 @@ def create_blueprint(conexion,mail):
     # - actualizar usuario --> usuarios, informacion, perfiles, tecnologias -
     # -----------------------------------------------------------------------    
     @usuario_bp.route('/usuario', methods=["PUT"])
-    @token_required
+    @security_bp.token_required
     def actualizar_usuario(id_token, role_token):
 
         nombre = request.form.get('nombre') 
@@ -105,7 +110,7 @@ def create_blueprint(conexion,mail):
         perfiles = request.form.get('perfiles') 
         tecnologias = request.form.get('tecnologias')
         user_id_by_admin = request.form.get('id')
-
+        
         
         if perfiles:
             perfiles = perfiles.split(',')
@@ -322,7 +327,7 @@ def create_blueprint(conexion,mail):
     # -------------- Delete usuario join todas las tablas -------------
     # -----------------------------------------------------------------
     @usuario_bp.route('/usuario', methods=["DELETE"])
-    @token_required
+    @security_bp.token_required
     def borrar_usuario(id_token, role_token):
 
         datos= request.get_json(silent=True)
@@ -364,7 +369,7 @@ def create_blueprint(conexion,mail):
     # ----------------------  actualizar password---- -----------------
     # -----------------------------------------------------------------    
     @usuario_bp.route('/actualizar_password', methods=["PUT"]) # el user admin para cambiar su password debe enviar el id 1
-    @token_required
+    @security_bp.token_required
     def actualizar_password(id_token, role_token):
 
         password = request.form.get("password")
@@ -479,7 +484,7 @@ def create_blueprint(conexion,mail):
         if not token_id or not password:
             return jsonify({"mensaje" : "formato de recuperación incorrecto"}), 400
         
-        token_valido = verify_auth_token(token_id)
+        token_valido = verify_auth_token_with_jwt(token_id)
                     
         if token_valido["status"] == "error":
             return jsonify (token_valido), 400

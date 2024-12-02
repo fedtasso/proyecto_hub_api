@@ -1,5 +1,5 @@
 from flask import jsonify, request, Blueprint
-from security import hash_password, verify_password, generate_auth_token, token_required
+from security import hash_password, verify_password, generate_auth_token, security_blueprint
 from validaciones import *
 
 def create_blueprint(conexion):
@@ -7,7 +7,13 @@ def create_blueprint(conexion):
     # Defining a blueprint
     auth_bp = Blueprint('auth', __name__)
 
-    # ---------- login -----------
+    security_bp = security_blueprint(conexion)
+    auth_bp.register_blueprint(security_bp)
+
+    
+    # -----------------------------------------------------------------
+    # ---------------------------  login ------------------------------
+    # -----------------------------------------------------------------
     @auth_bp.route('/login', methods=["POST"]) 
     def login():
         email = request.form.get('email')
@@ -64,18 +70,20 @@ def create_blueprint(conexion):
                                 }}), 200            
             else:
                 return jsonify({"mensaje": "contraseña inválida"}), 401  
-            
-            
+                       
 
         except Exception as ex:
             return jsonify({"mensaje": "Error al loguear el usuario", "error": str(ex)}), 500  
+        
         finally:
             cursor.close()
 
 
-    # ---------- sign_out -----------
+    # -----------------------------------------------------------------
+    # -----------------------------  sign out -------------------------
+    # -----------------------------------------------------------------
     @auth_bp.route('/sign_out', methods=["DELETE"])
-    @token_required
+    @security_bp.token_required
     def sign_out(id_token, role_token):
         token = request.form.get('token')
         try:
@@ -97,9 +105,10 @@ def create_blueprint(conexion):
             cursor.close()
 
 
-
-    
-    # ---------- crear usuario (form) con imagen -----------
+        
+    # -----------------------------------------------------------------
+    # -------------------------  crear usuario ------------------------
+    # -----------------------------------------------------------------
     @auth_bp.route('/registrar', methods=["POST"]) 
     def registrar():   
         
@@ -111,8 +120,16 @@ def create_blueprint(conexion):
         github = request.form.get('github')
         informacion_adicional = request.form.get('informacion_adicional')
         imagenBase64 = request.form.get('image')
-        perfiles = request.form.get('perfiles[]').split(',')
-        tecnologias = request.form.get('tecnologias[]').split(',')   
+        perfiles = request.form.get('perfiles')
+        tecnologias = request.form.get('tecnologias') 
+
+        print("perfiles", perfiles)
+        if perfiles:
+            perfiles = perfiles.split(',')
+        
+        if tecnologias:
+            tecnologias = tecnologias.split(',')
+
         try: 
             cursor=conexion.connection.cursor()
             conexion.connection.autocommit(False)
@@ -201,8 +218,3 @@ def create_blueprint(conexion):
             cursor.close()
 
     return auth_bp
-
-
-
-# endpoint deslogear borrar token
-
