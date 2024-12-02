@@ -261,13 +261,12 @@ def create_blueprint(conexion):
     @proyectos_bp.route('/proyectos_admin', methods=["GET"]) 
     @security_bp.token_required
     def mostrar_proyecto_admin(id_token, role_token):
-        titulo = request.args.get('titulo')        
-        
+       
         # TO Do validaciones
         
         try:
             cursor=conexion.connection.cursor()
-                                    
+                               
             sql= """
             SELECT
                 p.id,
@@ -286,16 +285,11 @@ def create_blueprint(conexion):
             LEFT JOIN
                 tecnologias_proyectos tp ON p.id = tp.proyecto_id
             WHERE 
-                1 = 1                 
+                up.usuario_id = %s
+            GROUP BY p.id, p.titulo, p.descripcion, p.url_deploy, p.url_repository, p.estado, p.permite_sumarse;           
                 """
-            parametros = []
-            if titulo:
-                sql += "AND titulo = %s"
-                parametros.append(titulo)
-            
-            sql +=  " GROUP BY p.id, p.titulo, p.descripcion, p.url_deploy, p.url_repository, p.estado, p.permite_sumarse;"
-
-            cursor.execute(sql, parametros)
+           
+            cursor.execute(sql, (id_token,))
             datos = cursor.fetchall()
            
             if datos:
@@ -343,7 +337,7 @@ def create_blueprint(conexion):
                                 "tecnologias" : dato[8]
                     }
                                             
-                return jsonify({"proyectos" : proyectos})
+                return jsonify({"proyectos_admin" : proyectos})
             else:
                 return jsonify({"mensaje": "proyecto no encontrado"}), 404
         
