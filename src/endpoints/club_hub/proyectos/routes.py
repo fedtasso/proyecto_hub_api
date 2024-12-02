@@ -8,7 +8,7 @@ def create_blueprint(conexion):
     security_bp = security_blueprint(conexion)
     proyectos_bp.register_blueprint(security_bp)
 
-    
+    # falta verificar si el participante es admin de proyecto
 
 
     # -----------------------------------------------------------------
@@ -102,9 +102,8 @@ def create_blueprint(conexion):
             cursor.close()
 
     # -----------------------------------------------------------------
-    # -------------------- agregar participantes ----------------------
+    # --------------------- sumarse a proyecto ------------------------
     # -----------------------------------------------------------------
-    # Un usuario puede sumarse a un proyecto y un administrador de proyecto puede sumar a otro usuario
     @proyectos_bp.route('/sumarse_proyecto', methods=["POST"])
     @security_bp.token_required
     def sumarse_proyecto(id_token, role_token):
@@ -135,27 +134,28 @@ def create_blueprint(conexion):
             if not datos_proyecto:
                 return jsonify ({"mensaje": "El proyecto no existe"}), 401
             
-            # verificar si admin agrega otro participante
-            if sumar_participante:
-                
-                # verficar si es admin        
-                cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (id_user, proyecto_id))
-                is_admin = cursor.fetchone()
 
-                if is_admin == None:
-                    return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401
+            # # verificar si admin agrega otro participante
+            # if sumar_participante:
+                
+            #     # verficar si es admin        
+            #     cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (id_user, proyecto_id))
+            #     is_admin = cursor.fetchone()
+
+            #     if is_admin == None:
+            #         return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401
 
                 
-                if is_admin[0] == 1:
-                    id_user = sumar_participante
-                    # verificar si el participante existe
-                    participante_existe = find_user_by_id(cursor, id_user)
+            #     if is_admin[0] == 1:
+            #         id_user = sumar_participante
+            #         # verificar si el participante existe
+            #         participante_existe = find_user_by_id(cursor, id_user)
                 
-                    if not participante_existe:
-                        return jsonify ({"mensaje": "El id proporcionado no corresponde a ningún participante"}), 401
+            #         if not participante_existe:
+            #             return jsonify ({"mensaje": "El id proporcionado no corresponde a ningún participante"}), 401
 
-                else:
-                    return jsonify ({"mensaje": "No tiene permisos para agregar un participante al proyecto"}), 401
+            #     else:
+            #         return jsonify ({"mensaje": "No tiene permisos para agregar un participante al proyecto"}), 401
 
             
             
@@ -182,7 +182,7 @@ def create_blueprint(conexion):
     # -----------------------------------------------------------------
     # ---------------------- salir de proyecto ------------------------
     # -----------------------------------------------------------------
-            
+    # usuario sale de proyecto con token, admin_proyecto borra participante con borrar_participante
     @proyectos_bp.route('/salir_proyecto', methods=["DELETE"])
     @security_bp.token_required
     def salir_proyecto(id_token, role_token):
@@ -275,8 +275,7 @@ def create_blueprint(conexion):
                 p.url_deploy,
                 p.url_repository,
                 p.estado,
-                p.permite_sumarse,               
-                GROUP_CONCAT(DISTINCT up.usuario_id SEPARATOR ',') AS particpantes,
+                p.permite_sumarse,                
                 GROUP_CONCAT(DISTINCT tp.tecnologia SEPARATOR ',') AS tecnologias
             FROM 
                 proyectos p
@@ -291,40 +290,29 @@ def create_blueprint(conexion):
            
             cursor.execute(sql, (id_token,))
             datos = cursor.fetchall()
-           
+                   
+
             if datos:
                 proyectos = {}
                 for dato in datos:  
-                    
-                    # Evita error si un proyecto se quedó sin participantes
-                    if dato[7] == None:
-                        participantes = ()                        
-                    else:
-                        
-                        participantes = dato[7].split(',')                 
-
+                   
+                    cursor.execute("""SELECT u.id, u.nombre, u.apellido, up.admin 
+                            FROM usuarios u
+                            LEFT JOIN usuarios_proyectos up ON up.usuario_id = u.id                            
+                            WHERE up.proyecto_id = %s
+                            """, (dato[0],))
+                    data_participantes = cursor.fetchall()
                     lista_participantes = []
-                    
-                    for user in participantes:
+                                        
+                    for i in data_participantes:    
+                        participantes_proyecto = {}
 
-                        cursor.execute("""
-                                       SELECT u.id, u.nombre, u.apellido, up.admin 
-                                       FROM usuarios u 
-                                       LEFT JOIN usuarios_proyectos up ON u.id = up.usuario_id
-                                       WHERE u.id = %s""", (user,))
-                        resultado = cursor.fetchall()
-                                               
-                        participante_proyecto ={}
-
-                        # Evita error si un proyecto se quedó sin participantes
-                        for i in resultado:
-                            participante_proyecto["id"] = i[0]
-                            participante_proyecto["nombre"] = i[1]
-                            participante_proyecto["apellido"] = i[2]
-                            participante_proyecto["admin"] = i[3]
-
-                            lista_participantes.append(participante_proyecto)
-                                                                
+                        participantes_proyecto["id"] = i[0]
+                        participantes_proyecto["nombre"] = i[1]
+                        participantes_proyecto["apellido"] = i[2]
+                        participantes_proyecto["admin"] = i[3]
+                        lista_participantes.append(participantes_proyecto)
+                   
                     proyectos[dato[0]] = { 
                                 "id" : dato[0],
                                 "titulo" : dato[1],
@@ -334,12 +322,12 @@ def create_blueprint(conexion):
                                 "estado" : dato[5],
                                 "permite_sumarse" : dato[6],
                                 "participantes" : lista_participantes,
-                                "tecnologias" : dato[8]
+                                "tecnologias" : dato[7]
                     }
                                             
                 return jsonify({"proyectos_admin" : proyectos})
             else:
-                return jsonify({"mensaje": "proyecto no encontrado"}), 404
+                return jsonify({"mensaje": "el usuario no es administrador de proyecto"}), 404
         
         except Exception as ex:         
             return jsonify({"mensaje": "Error al buscar los proyectos del usuario", "error": str(ex)}), 500    
@@ -391,28 +379,31 @@ def create_blueprint(conexion):
 
             cursor.execute(sql, parametros)
             datos = cursor.fetchall()
-           
+            print("datos", datos)
             if datos:
                 proyectos = {}
                 for dato in datos:  
                     
                     # Evita error si un proyecto se quedó sin participantes
                     if dato[7] == None:
+                        print("entro")
                         participantes = ()                        
                     else:
+                        print("tambien aca")
                         participantes = dato[7].split(',')                 
 
                     lista_participantes = []
-                    
+                    print("participantes", participantes)
                     for user in participantes:
+                        print("user", user)
 
                         cursor.execute("""
                                        SELECT u.id, u.nombre, u.apellido, up.admin 
                                        FROM usuarios u 
                                        LEFT JOIN usuarios_proyectos up ON u.id = up.usuario_id
-                                       WHERE u.id = %s""", (user,))
+                                       WHERE u.id = %s AND proyecto_id = %s""", (user, dato[0]))
                         resultado = cursor.fetchall()
-                                               
+                        print("resultado", resultado)
                         participante_proyecto ={}
 
                         # Evita error si un proyecto se quedó sin participantes
@@ -422,6 +413,7 @@ def create_blueprint(conexion):
                            
 
                             lista_participantes.append(participante_proyecto)
+                        print("lista participantes", lista_participantes)
                                                                 
                     proyectos[dato[0]] = { 
                                 "id" : dato[0],
@@ -448,7 +440,7 @@ def create_blueprint(conexion):
     # -----------------------------------------------------------------
     # ----------------------- borrar proyecto -------------------------
     # -----------------------------------------------------------------
-    @proyectos_bp.route('/borrar_proyecto', methods=["DELETE"])
+    @proyectos_bp.route('/proyecto', methods=["DELETE"])
     @security_bp.token_required
     def borrar_proyecto(id_token, role_token):
         
@@ -460,8 +452,6 @@ def create_blueprint(conexion):
         try:
             cursor=conexion.connection.cursor()
             conexion.connection.autocommit(False)
-
-
 
             # buscar usuario y asignar rol
             validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
@@ -476,19 +466,112 @@ def create_blueprint(conexion):
             if not datos_proyecto:
                 return jsonify ({"mensaje": "El proyecto no existe"}), 401
 
-            # verificar si el participante está en el proyecto
-            cursor.execute("SELECT usuario_id FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (id_user, proyecto_id))
-            datos_usuario = cursor.fetchall()
-            if not datos_usuario:
+            # verificar si id_user (quien accede al endpoint) es administrador del proyecto
+            cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (id_user, proyecto_id))
+            rol_proyecto = cursor.fetchone()
+            if not rol_proyecto:
                 return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401
-            
-            # verificar si usuario es admin de proyecto
-            
+                            
+            if rol_proyecto[0] == 0:
+                return jsonify ({"mensaje": "sin permisos, el usuario no es administrador"}), 401
+
             # borrar en tabla participantes            
-            cursor.execute("DELETE FROM usuarios_proyectos WHERE usuario_id = %s and proyecto_id = %s", (id_user, proyecto_id))
+            cursor.execute("DELETE FROM proyectos WHERE id = %s", (proyecto_id,))
+            print("llegamos")
 
             conexion.connection.commit()
-            return jsonify ({"mensaje": "Saliste del proyecto satisfactoriamente."}), 200
+            return jsonify ({"mensaje": "Proyecto eliminado."}), 200
+
+        except Exception as ex: 
+            conexion.connection.rollback()
+            return jsonify({"mensaje": "Error al borrar el proyecto", "error": str(ex)}), 500  
+          
+        finally:
+            cursor.close()
+
+
+
+    # -----------------------------------------------------------------
+    # ------------------- añadir admin de proyecto --------------------
+    # ----------------------------------------------------------------- 
+    # cambiar rol a admin con is_admin, cambiar rol a participante con is_participante   
+    @proyectos_bp.route('/cambiar_rol_proyecto', methods=["PUT"])
+    @security_bp.token_required
+    def cambiar_rol_proyecto(id_token, role_token):
+        
+        proyecto_id = request.form.get('proyecto_id')
+        is_admin = request.form.get('is_admin')
+        is_participante = request.form.get('is_participante')
+
+        user_id_by_admin = request.form.get('id')
+       
+        # TO Do validaciones
+        if is_admin and is_participante:
+            return jsonify ({"mensaje": "debe enviar un solo rol"}), 401
+        try:
+            cursor=conexion.connection.cursor()
+            conexion.connection.autocommit(False)
+
+            # buscar usuario y asignar rol global TO DO revisar como funciona con admin del proyecto
+            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
+            if validated_user_id["id"] is None:
+                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
+                
+            id_user = validated_user_id["id"] 
+
+            # verificar si proyecto existe
+            cursor.execute("SELECT proyecto_id FROM usuarios_proyectos WHERE proyecto_id = %s", (proyecto_id,))
+            datos_proyecto = cursor.fetchall()
+            if not datos_proyecto:
+                return jsonify ({"mensaje": "El proyecto no existe"}), 401
+
+            # verificar si id_user (quien accede al endpoint) es administrador del proyecto
+            cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (id_user, proyecto_id))
+            rol_proyecto = cursor.fetchone()
+            if not rol_proyecto:
+                return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401
+                            
+            if rol_proyecto[0] == 0:
+                return jsonify ({"mensaje": "sin permisos, el usuario no es administrador"}), 401
+                
+            
+            if is_admin:
+                # verficar si es admin o participante
+                cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (is_admin, proyecto_id))
+                rol = cursor.fetchone()
+                print("rol", rol[0])
+
+                if not rol:
+                    return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401
+                                
+                if rol[0] == 1:
+                    return jsonify ({"mensaje": "error, el usuario ya es administrador"}), 401
+                    # verificar si el participante existe
+                                   
+                if rol[0] == 0:
+                    cursor.execute("UPDATE usuarios_proyectos SET admin = 1 WHERE usuario_id = %s AND proyecto_id = %s", (is_admin, proyecto_id))
+                    conexion.connection.commit()
+                    return jsonify ({"mensaje": "cambio de rol exitoso"}), 401
+            
+            if is_participante:
+                # verficar si es admin o participante
+                cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (is_participante, proyecto_id))
+                rol = cursor.fetchone()
+                print("rol", rol[0])
+
+                if not rol:
+                    return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401
+                                
+                if rol[0] == 0:
+                    return jsonify ({"mensaje": "error, el usuario ya es administrador"}), 401
+                    # verificar si el participante existe
+                                   
+                if rol[0] == 1:
+                    cursor.execute("UPDATE usuarios_proyectos SET admin = 0 WHERE usuario_id = %s AND proyecto_id = %s", (is_participante, proyecto_id))
+                    conexion.connection.commit()
+                    return jsonify ({"mensaje": "cambio de rol exitoso"}), 401
+
+        
 
         except Exception as ex: 
             conexion.connection.rollback()
@@ -496,5 +579,7 @@ def create_blueprint(conexion):
           
         finally:
             cursor.close()
+
+
 
     return proyectos_bp

@@ -1,3 +1,12 @@
+2/12
+proyectos:
+    - endpoint borrar proyectos(cambié las restricciones de proyectos, proyectos_usuarios y tecnologias_proyectos en bbdd)
+    - buscar proyectos, corregi informacion de participantes duplicada
+    - endpoint cambiar rol en proyecto
+
+
+
+
 1/12/2024
 proyectos
     - endpoint salir proyecto

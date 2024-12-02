@@ -143,15 +143,19 @@ ALTER TABLE recuperar_password
 ADD CONSTRAINT fk_recuperar_password_usuarios 
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)  ON DELETE CASCADE;
 
+-- ALTER TABLE usuarios_proyectos DROP FOREIGN KEY fk_usuarios_proyectos__usuarios;
+-- ALTER TABLE usuarios_proyectos DROP FOREIGN KEY fk_proyecto_id__proyecto;
+-- ALTER TABLE tecnologias_proyectos DROP FOREIGN KEY fk_tecnologias_proyectos;
+
 ALTER TABLE usuarios_proyectos
 ADD CONSTRAINT fk_usuarios_proyectos__usuarios
 FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 ADD CONSTRAINT fk_proyecto_id__proyecto
-FOREIGN KEY (proyecto_id) REFERENCES proyectos(id);
+FOREIGN KEY (proyecto_id) REFERENCES proyectos(id)ON DELETE CASCADE;
 
 ALTER TABLE tecnologias_proyectos
 ADD CONSTRAINT fk_tecnologias_proyectos 
-FOREIGN KEY (proyecto_id) REFERENCES proyectos(id);
+FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE;
 
 
 INSERT INTO `roles` VALUES (0,'admin'), (0, 'user');
