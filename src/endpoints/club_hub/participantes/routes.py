@@ -2,6 +2,11 @@ from flask import jsonify, request,  Blueprint
 
 def create_blueprint(conexion):
     participantes_bp = Blueprint('participantes', __name__)
+
+
+    # -----------------------------------------------------------------
+    # ----------  obtener datos de todos los participantes ------------
+    # -----------------------------------------------------------------
     
     @participantes_bp.route('/usuarios', methods=["GET"])
     def mostrar_participantes():

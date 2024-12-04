@@ -151,15 +151,14 @@ def create_blueprint(conexion,mail):
 
 
             #verificar rol        
-            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
-        
+            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)        
             if validated_user_id["id"] is None:
                 return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
             else:
                 id_user = validated_user_id["id"]
 
 
-            #informacion desde el front
+            # informacion desde el front
             info_user_front = {"nombre": nombre, 
                             "apellido": apellido, 
                             "email": email,                           
@@ -170,7 +169,8 @@ def create_blueprint(conexion,mail):
                             "image": imagenBase64 
                             }      
             
-            #buscar informacion del usuario en la bbdd     
+
+            # buscar informacion del usuario en la bbdd     
             cursor.execute("""
                     SELECT u.nombre, u.apellido, u.email, i.informacion_adicional, i.url_github, i.image,
                     GROUP_CONCAT(DISTINCT p.perfil SEPARATOR ',') AS perfiles,
@@ -195,25 +195,27 @@ def create_blueprint(conexion,mail):
                             }
             
             # verificar si la informacion es igual a la almacenada en BBDD  
-            verificar_con_bbdd = {}
-        
+            verificar_con_bbdd = {}     
+
             for key, value in info_user_front.items():
                 if value:
                     verificar_con_bbdd[key] = value
                 
-            datos_actualizar = verificacion_con_bbdd(id_token, verificar_con_bbdd, info_user_bbdd)
+            datos_actualizar = verificacion_con_bbdd(verificar_con_bbdd, info_user_bbdd)
 
             if not datos_actualizar:
                 return jsonify ({"mensaje": "todos los datos ya existen"}), 200  
             
-            if "error" in datos_actualizar:
-                return jsonify(datos_actualizar), 500
+            # if "error" in datos_actualizar:
+            #     return jsonify(datos_actualizar), 500
             
+
             #verificar que el mail no pertenezca a otro usuario
             if "email" in datos_actualizar:
                 if validar_y_verificar_email(email, "email", cursor):
                     return jsonify ({"mensaje": "el mail ya existe"}), 400 
                 
+            print(datos_actualizar)   
             # modificar informacion nueva en bbdd
             set_clause = {
                 "usuarios": [],

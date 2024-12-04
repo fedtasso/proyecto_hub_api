@@ -7,6 +7,10 @@ import hashlib # hash de imagen o archivo para evitar duplicados
 import glob # buscar nombre entre archivos
 
 
+#separar verificaciones de validaciones
+# quitar espacios en blanco al principio y final de los textos
+
+
 def find_user_by_id(cursor, user_id):
     cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
     return cursor.fetchone()
@@ -136,34 +140,37 @@ def verificar_email(email, cursor):
 
 
 
-def verificacion_con_bbdd(id_user, verificar_con_bbdd, info_user_bbdd):    
+def verificacion_con_bbdd(info_front, info_bbdd):    
 
     datos_distintos = {}
         
-    for key, dato in verificar_con_bbdd.items():
+    # for key, dato in verificar_con_bbdd.items():
         
-        if isinstance(dato, list):
-             datos_distintos = {}
+    #     if isinstance(dato, list):
+    #          datos_distintos = {}
         
-    for key, dato in verificar_con_bbdd.items():
-        
-        if isinstance(dato, list):
-           
-            for value in dato:    
-               if value not in info_user_bbdd[key].split(","):
-                    if key not in datos_distintos:
-                        datos_distintos[key] = {"update": [], "delete": []}
-                    datos_distintos[key]["update"].append(value)
+    for key_front, dato_front in info_front.items():
+        # verficar si es una lista
+        if isinstance(dato_front, list):
             
-            for value in info_user_bbdd[key].split(","):
-               if value not in dato:
-                    if key not in datos_distintos:
-                        datos_distintos[key] = {"update": [], "delete": []}
-                    datos_distintos[key]["delete"].append(value)
+            # agregar solo datos distintos para actualizar en bbdd en diccionario y crear llave si no existe
+            for value in dato_front:    
+               if value not in info_bbdd[key_front].split(","):
+                    if key_front not in datos_distintos:
+                        datos_distintos[key_front] = {"update": [], "delete": []}
+                    datos_distintos[key_front]["update"].append(value)
             
-
-        elif dato != info_user_bbdd[key]:
-            datos_distintos[key] = dato
+            # agregar solo datos para borrar de bbdd en diccionario y crear llave si no existe
+            for value in info_bbdd[key_front].split(","):
+               if value not in dato_front:
+                    if key_front not in datos_distintos:
+                        datos_distintos[key_front] = {"update": [], "delete": []}
+                    datos_distintos[key_front]["delete"].append(value)
+            
+        # agrega solo datos distintos para actualizar en bbdd        
+        elif dato_front != info_bbdd[key_front]:
+            datos_distintos[key_front] = dato_front
+            
 
     return datos_distintos
            

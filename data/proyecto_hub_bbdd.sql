@@ -50,9 +50,6 @@ CREATE TABLE tecnologias(
     PRIMARY KEY (`id`)
 );
 
-
-
-
 CREATE TABLE roles_usuarios(
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
@@ -101,7 +98,7 @@ CREATE TABLE tecnologias_proyectos (
     PRIMARY KEY (`id`)
 );
 
-CREATE TABLE usuarios_proyectos(
+CREATE TABLE usuarios_proyectos (
     `id` INT NOT NULL AUTO_INCREMENT,
     `usuario_id` INT, 
     `proyecto_id` INT,
