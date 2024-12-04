@@ -10,6 +10,8 @@ def create_blueprint(conexion,mail):
     security_bp = security_blueprint(conexion)
     usuario_bp.register_blueprint(security_bp)
 
+
+
     # -----------------------------------------------------------------
     # ------------------  obtener datos de un usuario -----------------
     # -----------------------------------------------------------------
@@ -194,13 +196,16 @@ def create_blueprint(conexion,mail):
                             "tecnologias":user_bbdd[7]
                             }
             
+
             # verificar si la informacion es igual a la almacenada en BBDD  
+                ## 1 - agrega solo informacion enviada por front para comprar con bbdd
             verificar_con_bbdd = {}     
 
             for key, value in info_user_front.items():
                 if value:
                     verificar_con_bbdd[key] = value
                 
+                ## 2 - compara ambos diccionarios  
             datos_actualizar = verificacion_con_bbdd(verificar_con_bbdd, info_user_bbdd)
 
             if not datos_actualizar:
@@ -215,7 +220,7 @@ def create_blueprint(conexion,mail):
                 if validar_y_verificar_email(email, "email", cursor):
                     return jsonify ({"mensaje": "el mail ya existe"}), 400 
                 
-            print(datos_actualizar)   
+             
             # modificar informacion nueva en bbdd
             set_clause = {
                 "usuarios": [],

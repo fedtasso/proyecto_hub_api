@@ -123,7 +123,7 @@ def create_blueprint(conexion):
         perfiles = request.form.get('perfiles')
         tecnologias = request.form.get('tecnologias') 
 
-        print("perfiles", perfiles)
+
         if perfiles:
             perfiles = perfiles.split(',')
         

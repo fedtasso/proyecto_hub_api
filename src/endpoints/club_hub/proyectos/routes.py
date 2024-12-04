@@ -161,8 +161,7 @@ def create_blueprint(conexion):
 
             # verificar si proyecto existe
             cursor.execute("SELECT id FROM proyectos WHERE id = %s", (proyecto_id,))
-            datos_proyecto = cursor.fetchall()
-            
+            datos_proyecto = cursor.fetchall()            
             if not datos_proyecto:
                 return jsonify ({"mensaje": "El proyecto no existe"}), 401
             
@@ -222,14 +221,12 @@ def create_blueprint(conexion):
             # verificar si la informacion es igual a la almacenada en BBDD  
                 ## 1 - agrega solo informacion enviada por front para comprar con bbdd
             verificar_con_bbdd = {}     
-            for key, value in info_proyecto_front.items():
-                
+            for key, value in info_proyecto_front.items():                
                 if value:                    
                     verificar_con_bbdd[key] = value
             
                 ## 2 - compara ambos diccionarios
-            datos_actualizar = verificacion_con_bbdd(verificar_con_bbdd, info_proyecto_bbdd)
-           
+            datos_actualizar = verificacion_con_bbdd(verificar_con_bbdd, info_proyecto_bbdd)           
             if not datos_actualizar:
                 return jsonify ({"mensaje": "todos los datos ya existen"}), 200  
             
