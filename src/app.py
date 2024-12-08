@@ -5,6 +5,12 @@ from private.config import config
 from flask_mail import Mail
 from flask_cors import CORS
 
+import win32serviceutil
+import win32service
+import win32event
+import servicemanager
+from multiprocessing import Process
+
 from endpoints.club_hub.auth import routes as auth
 from endpoints.club_hub.usuario import routes as usuario
 from endpoints.club_hub.participantes import routes as participantes
@@ -82,9 +88,27 @@ def setup():
 def pagina_no_encontrada(error):
     return "<h1>La página no existe</h1>",404
 
+class Service(win32serviceutil.ServiceFramework):
+    _svc_name_ = "flask_backend_hub_desarrolladores"
+    _svc_display_name_ = "ClubDesarrolladores_Back"
+    _svc_description_ = "Servicio del backend para la pagina Club Desarrolladores"
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+    def SvcStop(self):
+        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+        self.process.terminate()
+        self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+
+    def SvcDoRun(self):
+        self.process = Process(target=self.main)
+        self.process.start()
+        self.process.run()
+
+    def main(self):
+        app.register_error_handler(404,pagina_no_encontrada) 
+        app.run(host = app_config.HOST, port = app_config.PORT)
+
 if __name__=='__main__':
-    app.register_error_handler(404,pagina_no_encontrada) 
-    app.run(host = app_config.HOST, port = app_config.PORT)
-    
-
-
+    win32serviceutil.HandleCommandLine(Service)
