@@ -273,10 +273,8 @@ def create_blueprint(conexion):
             
             # actualizar proyecto
             if set_clause["proyectos"]:
-                params["proyectos"].append(id_token)
-                sql = f"""UPDATE proyectos
-                                SET {', '.join(set_clause["proyectos"])} 
-                                WHERE id = %s"""               
+                params["proyectos"].append(proyecto_id)
+                sql = f"""UPDATE proyectos SET {', '.join(set_clause["proyectos"])} WHERE id = %s"""               
                 cursor.execute(sql, tuple(params["proyectos"]))
 
             
@@ -508,8 +506,9 @@ def create_blueprint(conexion):
                 proyectos = {}
                 for dato in datos:  
                    
-                    cursor.execute("""SELECT u.id, u.nombre, u.apellido, up.admin 
+                    cursor.execute("""SELECT u.id, u.nombre, u.apellido, i.image, up.admin 
                             FROM usuarios u
+                            LEFT JOIN informacion i ON i.usuario_id = u.id                            
                             LEFT JOIN usuarios_proyectos up ON up.usuario_id = u.id                            
                             WHERE up.proyecto_id = %s
                             """, (dato[0],))
@@ -522,8 +521,13 @@ def create_blueprint(conexion):
                         participantes_proyecto["id"] = i[0]
                         participantes_proyecto["nombre"] = i[1]
                         participantes_proyecto["apellido"] = i[2]
-                        participantes_proyecto["admin"] = i[3]
+                        participantes_proyecto["image"] = i[3]
+                        participantes_proyecto["admin"] = i[4]
                         lista_participantes.append(participantes_proyecto)
+                        
+                    lista_tecnologias = []
+                    if dato[7] != None and dato[7] != 'undefined':
+                        lista_tecnologias = dato[7].split(',')   
                    
                     proyectos[dato[0]] = { 
                                 "id" : dato[0],
@@ -534,10 +538,11 @@ def create_blueprint(conexion):
                                 "estado" : dato[5],
                                 "permite_sumarse" : dato[6],
                                 "participantes" : lista_participantes,
-                                "tecnologias" : dato[7]
+                                "tecnologias" : lista_tecnologias
                     }
-                                            
-                return jsonify({"proyectos_admin" : proyectos})
+                     
+                lista_proyectos = list(proyectos.values())       
+                return jsonify({"proyectos_admin" : lista_proyectos})
             else:
                 return jsonify({"mensaje": "el usuario no es administrador de proyecto"}), 404
         
@@ -606,8 +611,9 @@ def create_blueprint(conexion):
                     for user in participantes:
 
                         cursor.execute("""
-                                       SELECT u.id, u.nombre, u.apellido, up.admin 
+                                       SELECT u.id, u.nombre, u.apellido, i.image, up.admin 
                                        FROM usuarios u 
+                                       LEFT JOIN informacion i ON u.id = i.usuario_id
                                        LEFT JOIN usuarios_proyectos up ON u.id = up.usuario_id
                                        WHERE u.id = %s AND proyecto_id = %s""", (user, dato[0]))
                         resultado = cursor.fetchall()
@@ -617,9 +623,15 @@ def create_blueprint(conexion):
                         for i in resultado:                           
                             participante_proyecto["nombre"] = i[1]
                             participante_proyecto["apellido"] = i[2]
+                            participante_proyecto["image"] = i[3]
                            
 
                             lista_participantes.append(participante_proyecto)
+                            
+                            
+                    lista_tecnologias = []
+                    if dato[8] != None and dato[8] != 'undefined':
+                        lista_tecnologias = dato[8].split(',')     
                                                                 
                     proyectos[dato[0]] = { 
                                 "id" : dato[0],
@@ -630,9 +642,9 @@ def create_blueprint(conexion):
                                 "estado" : dato[5],
                                 "permite_sumarse" : dato[6],
                                 "participantes" : lista_participantes,
-                                "tecnologias" : dato[8]
+                                "tecnologias" : lista_tecnologias
                     }
-                                            
+                proyectos = list(proyectos.values())                                    
                 return jsonify({"proyectos" : proyectos})
             else:
                 return jsonify({"mensaje": "proyecto no encontrado"}), 404
@@ -708,8 +720,6 @@ def create_blueprint(conexion):
         is_admin = request.form.get('is_admin')
         is_participante = request.form.get('is_participante')
 
-        user_id_by_admin = request.form.get('id')
-       
         # TO Do validaciones
         if is_admin and is_participante:
             return jsonify ({"mensaje": "debe enviar un solo rol"}), 401
@@ -717,12 +727,6 @@ def create_blueprint(conexion):
             cursor=conexion.connection.cursor()
             conexion.connection.autocommit(False)
 
-            # buscar usuario y asignar rol global TO DO revisar como funciona con admin del proyecto
-            validated_user_id = role_find_and_validate(user_id_by_admin, id_token, role_token, cursor)
-            if validated_user_id["id"] is None:
-                return jsonify ({"mensaje": validated_user_id["mensaje"]}), 404
-                
-            id_user = validated_user_id["id"] 
 
             # verificar si proyecto existe
             cursor.execute("SELECT id FROM proyectos WHERE id = %s", (proyecto_id,))
@@ -730,15 +734,6 @@ def create_blueprint(conexion):
             if not datos_proyecto:
                 return jsonify ({"mensaje": "El proyecto no existe"}), 401
 
-            # verificar si id_user (quien accede al endpoint) es administrador del proyecto
-            cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (id_user, proyecto_id))
-            rol_proyecto = cursor.fetchone()
-            if not rol_proyecto:
-                return jsonify ({"mensaje": "El usuario no se encuentra registrado en el proyecto"}), 401                            
-            if rol_proyecto[0] == 0:
-                return jsonify ({"mensaje": "sin permisos, el usuario no es administrador"}), 401
-                
-            
             if is_admin:
                 # verficar si es admin o participante
                 cursor.execute("SELECT admin FROM usuarios_proyectos WHERE usuario_id = %s AND proyecto_id = %s", (is_admin, proyecto_id))
@@ -754,7 +749,7 @@ def create_blueprint(conexion):
                 if rol[0] == 0:
                     cursor.execute("UPDATE usuarios_proyectos SET admin = 1 WHERE usuario_id = %s AND proyecto_id = %s", (is_admin, proyecto_id))
                     conexion.connection.commit()
-                    return jsonify ({"mensaje": "cambio de rol exitoso"}), 401
+                    return jsonify ({"mensaje": "cambio de rol exitoso"}), 200
             
             if is_participante:
                 # verficar si es admin o participante
@@ -771,7 +766,7 @@ def create_blueprint(conexion):
                 if rol[0] == 1:
                     cursor.execute("UPDATE usuarios_proyectos SET admin = 0 WHERE usuario_id = %s AND proyecto_id = %s", (is_participante, proyecto_id))
                     conexion.connection.commit()
-                    return jsonify ({"mensaje": "cambio de rol exitoso"}), 401
+                    return jsonify ({"mensaje": "cambio de rol exitoso"}), 200
 
         
 

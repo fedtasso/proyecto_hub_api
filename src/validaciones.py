@@ -155,17 +155,23 @@ def verificacion_con_bbdd(info_front, info_bbdd):
             
             # agregar solo datos distintos para actualizar en bbdd en diccionario y crear llave si no existe
             for value in dato_front:    
-               if value not in info_bbdd[key_front].split(","):
-                    if key_front not in datos_distintos:
-                        datos_distintos[key_front] = {"update": [], "delete": []}
-                    datos_distintos[key_front]["update"].append(value)
-            
+                if info_bbdd[key_front]:  
+                    if value not in info_bbdd[key_front].split(","):
+                            if key_front not in datos_distintos:
+                                datos_distintos[key_front] = {"update": [], "delete": []}
+                            datos_distintos[key_front]["update"].append(value)
+                else:
+                    if info_front[key_front]:  
+                        if key_front not in datos_distintos:
+                            datos_distintos[key_front] = {"update": [], "delete": []}
+                        datos_distintos[key_front]["update"].append(value)
             # agregar solo datos para borrar de bbdd en diccionario y crear llave si no existe
-            for value in info_bbdd[key_front].split(","):
-               if value not in dato_front:
-                    if key_front not in datos_distintos:
-                        datos_distintos[key_front] = {"update": [], "delete": []}
-                    datos_distintos[key_front]["delete"].append(value)
+            if info_bbdd[key_front]:
+                for value in info_bbdd[key_front].split(","):
+                    if value not in dato_front:
+                            if key_front not in datos_distintos:
+                                datos_distintos[key_front] = {"update": [], "delete": []}
+                            datos_distintos[key_front]["delete"].append(value)
             
         # agrega solo datos distintos para actualizar en bbdd        
         elif dato_front != info_bbdd[key_front]:
