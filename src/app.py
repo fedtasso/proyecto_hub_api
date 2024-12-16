@@ -10,24 +10,24 @@ from endpoints.club_hub.usuario import routes as usuario
 from endpoints.club_hub.participantes import routes as participantes
 from endpoints.club_hub.proyectos import routes as proyectos
 from security import security_blueprint
+from flask_mail import Message
 
 app=Flask(__name__)
 CORS(app)
 
 admin_existe = None
 conexion = MySQL(app)
-mail = Mail(app)
 
 # entorno
 app_config = config["app_config"]()
-
 app.config.from_object(app_config)
 
+mail = Mail(app)
 
 #cargar endpoints
 app.register_blueprint(participantes.create_blueprint(conexion))
-app.register_blueprint(auth.create_blueprint(conexion))
-app.register_blueprint(usuario.create_blueprint(conexion,mail))
+app.register_blueprint(auth.create_blueprint(conexion, mail))
+app.register_blueprint(usuario.create_blueprint(conexion))
 app.register_blueprint(proyectos.create_blueprint(conexion))
 app.register_blueprint(security_blueprint(conexion))
 
