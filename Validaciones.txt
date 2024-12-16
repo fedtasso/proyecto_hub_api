@@ -1,0 +1,40 @@
+*validaciones*
+
+usuarios    
+    `nombre` VARCHAR(50) NOT NULL,  --> solo letras (no permitir números ni caracteres especiales)
+    `apellido` VARCHAR(50) NOT NULL,  --> solo letras (no permitir números ni caracteres especiales)
+    `email` VARCHAR(100) UNIQUE,  --> patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$' (patron clásico si no me equivoco)
+    `password` VARCHAR(128),  --> ¿ que caracteres no permitir? igual a caracteres_no_permitidos?
+
+
+informacion
+    `informacion_adicional` TEXT,  --> todo excepto estos caracteres:  caracteres_no_permitidos = r'[<>\"\'&]|--|/\*|\*/|\x00-\x1F|\\' (sugerencia de seguridad de gpt)
+    `image` MEDIUMTEXT,  -->  ¿¿?? no se si validar
+    `url_github`VARCHAR (255),  --> validar_url = se puede validar con una biblioteca como validators o urllib.parse o con una expresión regular ( me gusta mas la de biblioteca)
+
+
+perfiles
+    `perfil` VARCHAR (50),  --> caracteres_no_permitidos = ...
+
+
+tecnologias
+    `tecnologia` VARCHAR (50),  --> caracteres_no_permitidos = ...
+
+
+proyectos
+    `titulo` VARCHAR (50) NOT NULL,  --> caracteres_no_permitidos = ...
+    `descripcion` TEXT,  -->  caracteres_no_permitidos = ...
+    `url_deploy` VARCHAR (255),  --> validar_url = ...
+    `url_repository` VARCHAR (255),  --> validar_url = ...
+    `estado` VARCHAR (10),  --> caracteres_no_permitidos = ...
+    `permite_sumarse`TINYINT (1) DEFAULT 0,  --> que sea 0 o 1
+
+
+tecnologias_proyectos
+    `tecnologia` VARCHAR (50),  --> caracteres_no_permitidos = ...
+
+
+
+*verificaciones*
+
+sacar de la carpeta validaciones todas las funciones que se usan para validar información con la base de datos
