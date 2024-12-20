@@ -11,15 +11,23 @@ import glob # buscar nombre entre archivos
 # quitar espacios en blanco al principio y final de los textos
 
 
+# -----------------------------------------------------------------
+# --------------------- verificar usuario -------------------------
+# -----------------------------------------------------------------
 def find_user_by_id(cursor, user_id):
-    cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
-    return cursor.fetchone()
-
-
-
-def role_find_and_validate(user_id_by_admin, id_token, role_token, cursor):
     try:
-        
+        cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
+        return cursor.fetchone()
+    
+    except Exception as ex:       
+        return {"mensaje": "Error al buscar el usuario", "error": str(ex)} 
+
+
+# -----------------------------------------------------------------
+# --------------- verificar usuario y asignar rol -----------------
+# -----------------------------------------------------------------
+def role_find_and_validate(user_id_by_admin, id_token, role_token, cursor):
+    try:        
         #permisos de administrador
         if role_token == 1:                        
             if user_id_by_admin == None:
@@ -50,53 +58,13 @@ def role_find_and_validate(user_id_by_admin, id_token, role_token, cursor):
     except Exception as ex:
         g.conexion.connection.rollback()
         raise ex    
-    # finally:
-    #     cursor.close()
 
 
-
-def validar_datos_generica(cursor, validaciones):
-    for campo, (funcion, *args) in validaciones.items():
-        if args[0] is None:  # Si el valor es None, no validar
-            continue
-
-        error_al_validar = funcion(*args)
-        
-        if error_al_validar:
-            return error_al_validar
-    return None
-
-
-
-def validar_alpha(dato_usuario, campo_bbdd):
-    if not dato_usuario.isalpha():
-        dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
-                         "dato_invalido" : campo_bbdd}
-        return dato_invalido
-    return None
-
-
-def validar_comma_en_list(dato_usuario, campo_bbdd):
-    for dato in dato_usuario:
-        if "," in dato:
-            dato_invalido = {"mensaje": f" La lista de {campo_bbdd} no cumple con el formato establecido", 
-                            "dato_invalido" : campo_bbdd}
-            return dato_invalido
-    return None
-
-
-
-def validar_alfanumerico(dato_usuario, campo_bbdd):
-    if not dato_usuario.isalnum():
-        dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
-                         "dato_invalido" : campo_bbdd}
-        return dato_invalido
-    return None
-
-
-
-def validar_y_verificar_email(email, campo_bbdd, cursor):  
-    
+# -----------------------------------------------------------------
+# ----------------------- Verificar y valida email -------------------------
+# -----------------------------------------------------------------
+# TO DO separar validacion y verificacion
+def validar_y_verificar_email(email, campo_bbdd, cursor):    
     patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     if not re.match(patron, email):
         dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
@@ -114,17 +82,9 @@ def validar_y_verificar_email(email, campo_bbdd, cursor):
     return None
 
 
-
-def validar_email(email, campo_bbdd):  
-    
-    patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-    if not re.match(patron, email):
-        dato_invalido = {"mensaje": f" El email no cumple con el formato establecido", 
-                         "dato_invalido" : campo_bbdd}
-        return dato_invalido
-
-
-
+# -----------------------------------------------------------------
+# ------------------------ verifica email ---------------------------
+# -----------------------------------------------------------------
 def verificar_email(email, cursor):
     try:        
         cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
@@ -136,12 +96,69 @@ def verificar_email(email, cursor):
                 
     except Exception as ex:       
         return {"mensaje": "Error al buscar el usuario, intente nuevamente", "error": str(ex)} 
-   
 
 
 
-def verificacion_con_bbdd(info_front, info_bbdd):    
 
+
+
+
+
+
+
+
+# -----------------------------------------------------------------
+# ----------- funcion para administrar validaciones ---------------
+# -----------------------------------------------------------------
+def validar_datos_generica(cursor, validaciones):
+    for campo, (funcion, *args) in validaciones.items():
+        if args[0] is None:  # Si el valor es None, no validar
+            continue
+
+        error_al_validar = funcion(*args)
+        
+        if error_al_validar:
+            return error_al_validar
+    return None
+
+
+# -----------------------------------------------------------------
+# --------------------- permite solo letras -----------------------
+# -----------------------------------------------------------------
+def validar_alpha(dato_usuario, campo_bbdd):
+    if not dato_usuario.isalpha():
+        dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
+                         "dato_invalido" : campo_bbdd}
+        return dato_invalido
+    return None
+
+
+# -----------------------------------------------------------------
+# ------------------ permite letras y numeros ---------------------
+# -----------------------------------------------------------------
+def validar_alfanumerico(dato_usuario, campo_bbdd):
+    if not dato_usuario.isalnum():
+        dato_invalido = {"mensaje": f" El {campo_bbdd} no cumple con el formato establecido", 
+                         "dato_invalido" : campo_bbdd}
+        return dato_invalido
+    return None
+
+
+# -----------------------------------------------------------------
+# ------------------------ valida email ---------------------------
+# -----------------------------------------------------------------
+def validar_email(email, campo_bbdd):      
+    patron = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if not re.match(patron, email):
+        dato_invalido = {"mensaje": f" El email no cumple con el formato establecido", 
+                         "dato_invalido" : campo_bbdd}
+        return dato_invalido
+
+
+# -----------------------------------------------------------------
+# -------- compara diccionario y devuelve datos distintos ---------
+# -----------------------------------------------------------------
+def verificacion_con_bbdd(info_front, info_bbdd):  
     datos_distintos = {}
         
     # for key, dato in verificar_con_bbdd.items():
@@ -180,27 +197,69 @@ def verificacion_con_bbdd(info_front, info_bbdd):
 
     return datos_distintos
            
-    #         for value in dato:    
-    #            if info_user_bbdd[key] == None or value not in info_user_bbdd[key]:
-    #                 if key not in datos_distintos:
-    #                     datos_distintos[key] = {"update": [], "delete": []}
-    #                 datos_distintos[key]["update"].append(value)
-            
-    #         if info_user_bbdd[key] != None:
-    #             for value in info_user_bbdd[key]:
-    #                 if value not in dato:
-    #                         if key not in datos_distintos:
-    #                             datos_distintos[key] = {"update": [], "delete": []}
-    #                         datos_distintos[key]["delete"].append(value)
-            
 
-    #     elif dato != info_user_bbdd[key]:
-    #         datos_distintos[key] = dato
-
-    # return datos_distintos
+# -----------------------------------------------------------------
+# -------------- validar caracteres no permitidos------------------
+# -----------------------------------------------------------------
+def verificar_texto (texto):
+    # Caracteres prohibidos en HTML y SQL 
+    caracteres_no_permitidos = r'[<>\"\'&]|--|/\*|\*/|\x00-\x1F|\\'
+    
+    if re.search(caracteres_no_permitidos, texto):        
+        return True
 
 
+# -----------------------------------------------------------------
+# ----------------- valida longitud de texto ---------------------
+# -----------------------------------------------------------------
+def verificar_longitud_informacion(informacion, campo_bbdd):
+    # verificar que no use caracteres prohibidos
+    if verificar_texto(informacion):
+        dato_invalido = {"mensaje":"La biografía contiene caracteres no permitidos.", "dato invalido": campo_bbdd}
+        return dato_invalido
+    
+    # Validar longitud del texto
+    MAX_LENGTH = 500
+    if len(informacion) > MAX_LENGTH:
+        dato_invalido = {"mensaje":"no puede exeder los 500 caracteres", "dato invalido": campo_bbdd}
+        return dato_invalido
+    
+    return None
 
+    
+# -----------------------------------------------------------------
+# -------------------------              --------------------------
+# -----------------------------------------------------------------
+def validar_url ():
+    # TO DO
+    pass
+
+
+
+
+
+
+
+
+
+# -------------------------------------------- SIN USO ------------------------------------------------------
+
+# -----------------------------------------------------------------
+# ------------------ no permite coma en nombre ---------------------
+# -----------------------------------------------------------------
+# borrar por cambio de logica?
+def validar_comma_en_list(dato_usuario, campo_bbdd):
+    for dato in dato_usuario:
+        if "," in dato:
+            dato_invalido = {"mensaje": f" La lista de {campo_bbdd} no cumple con el formato establecido", 
+                            "dato_invalido" : campo_bbdd}
+            return dato_invalido
+    return None
+
+
+# -----------------------------------------------------------------
+# ---------------- hash de archivo de imagen ----------------------
+# -----------------------------------------------------------------
 def calcular_hash(image):
     # Lee el contenido del archivo de imagen
     file_data = image.read()
@@ -220,7 +279,9 @@ def verificar_nombre_imagen(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-
+# -----------------------------------------------------------------
+# ------------------ valida extension de imagen -------------------
+# -----------------------------------------------------------------
 def validar_imagen(image, app):
     
     if 'image' not in request.files:
@@ -245,6 +306,9 @@ def validar_imagen(image, app):
 
 
 
+# -----------------------------------------------------------------
+# ----------------- guardar imagen en carpeta ---------------------
+# -----------------------------------------------------------------
 def imagen_validar_verificar_guardar(image, usuario_id, app):
        
     if 'image' not in request.files:
@@ -276,32 +340,3 @@ def imagen_validar_verificar_guardar(image, usuario_id, app):
     image.save(file_path)
     
     return file_path
-
-
-
-def verificar_longitud_informacion(informacion, campo_bbdd):
-
-    # verificar que no use caracteres prohibidos
-    if verificar_texto(informacion):
-        dato_invalido = {"mensaje":"La biografía contiene caracteres no permitidos.", "dato invalido": campo_bbdd}
-        return dato_invalido
-    
-    # Validar longitud del texto (opcional)
-    MAX_LENGTH = 500
-    if len(informacion) > MAX_LENGTH:
-        dato_invalido = {"mensaje":"no puede exeder los 500 caracteres", "dato invalido": campo_bbdd}
-        return dato_invalido
-    
-    return None
-
-def verificar_texto (texto):
-    # Caracteres prohibidos en HTML y SQL 
-    caracteres_no_permitidos = r'[<>\"\'&]|--|/\*|\*/|\x00-\x1F|\\'
-    
-    if re.search(caracteres_no_permitidos, texto):        
-        return True
-    
-
-def validar_url ():
-    # TO DO
-    print("True")
