@@ -332,7 +332,7 @@ def create_blueprint(conexion,mail):
     @auth_bp.route('/recuperar_contra/validacion', methods=["PUT"])
     def restablecer_password():
 
-        token_id = request.args.get('token_id')
+        token_id = request.form.get('token_id')
         password = request.form.get('password')
     
         if not token_id or not password:
