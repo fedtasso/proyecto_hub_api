@@ -318,7 +318,7 @@ def create_blueprint(conexion,mail):
                 return jsonify({"mensaje":"debe proporcionar un email"}), 400
             
         except Exception as e:
-            return jsonify({"mensaje":"Error al enviar el correo", "error": str(e)})
+            return jsonify({"mensaje":"Error al enviar el correo", "error": str(e)},500)
         
         finally:
             cursor.close()
@@ -341,7 +341,7 @@ def create_blueprint(conexion,mail):
         token_valido = verify_auth_token_with_jwt(token_id)
                     
         if token_valido["status"] == "error":
-            return jsonify (token_valido), 400
+            return jsonify ({"mensaje" : "Error! Token invalido."}), 400
         
         # falta validar password
         print("--------------------------------------------------------",token_id, password) 
