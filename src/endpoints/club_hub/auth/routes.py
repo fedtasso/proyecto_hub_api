@@ -265,7 +265,7 @@ def create_blueprint(conexion,mail):
     # -----------------------------------------------------------------
     # -----------------------  recuperar password ---------------------
     # ------------------------------paso 1 ----------------------------    
-    @auth_bp.route('/recuperar_password/enviar_email', methods=["POST"]) #TO DO ver nombres acordados con Bauti
+    @auth_bp.route('/recuperar_contra/validacion', methods=["POST"]) #TO DO ver nombres acordados con Bauti
     def recuperar_password():
         email = request.form.get("email")
         
@@ -329,7 +329,7 @@ def create_blueprint(conexion,mail):
     # -----------------------------------------------------------------
     # -----------------------  recuperar password ---------------------
     # ------------------------------paso 2 ----------------------------    
-    @auth_bp.route('/recuperar_password/actualizar', methods=["PUT"])
+    @auth_bp.route('/recuperar_contra/validacion', methods=["PUT"])
     def restablecer_password():
 
         token_id = request.args.get('token_id')
