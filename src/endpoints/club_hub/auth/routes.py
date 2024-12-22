@@ -3,7 +3,7 @@ from security import hash_password, verify_password, generate_auth_token, verify
 from validaciones import *
 from flask_mail import Message
 
-def create_blueprint(conexion,mail):
+def create_blueprint(conexion,mail, app_config):
     # Defining a blueprint
     auth_bp = Blueprint('auth', __name__)
 
@@ -300,7 +300,7 @@ def create_blueprint(conexion,mail):
                 
     Para recuperar su contraseña acceda al siguiente link:
 
-    http://127.0.0.1:5000/recuperar_password/actualizar?token_id={token_id}
+    {app_config.DNS}/recuperar-contra/actualizar?token={token_id}
 
     Por favor, siga las instrucciones en la página para restablecer su contraseña.
 

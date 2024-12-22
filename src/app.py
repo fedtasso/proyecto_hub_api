@@ -26,7 +26,7 @@ mail = Mail(app)
 
 #cargar endpoints
 app.register_blueprint(participantes.create_blueprint(conexion))
-app.register_blueprint(auth.create_blueprint(conexion, mail))
+app.register_blueprint(auth.create_blueprint(conexion, mail, app_config))
 app.register_blueprint(usuario.create_blueprint(conexion))
 app.register_blueprint(proyectos.create_blueprint(conexion))
 app.register_blueprint(security_blueprint(conexion))
