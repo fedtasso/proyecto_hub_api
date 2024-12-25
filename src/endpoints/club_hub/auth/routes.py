@@ -329,7 +329,7 @@ def create_blueprint(conexion,mail, app_config):
     # -----------------------------------------------------------------
     # -----------------------  recuperar password ---------------------
     # ------------------------------paso 2 ----------------------------    
-    @auth_bp.route('/recuperar_contra/validacion', methods=["PUT"])
+    @auth_bp.route('/recuperar_contra/cambio', methods=["PUT"])
     def restablecer_password():
 
         token_id = request.form.get('token_id')
