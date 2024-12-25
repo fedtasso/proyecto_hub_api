@@ -202,7 +202,7 @@ def create_blueprint(conexion):
             verificar_con_bbdd = {}     
 
             for key, value in info_user_front.items():
-                if value:
+                if value is not None:
                     verificar_con_bbdd[key] = value
                 
                 ## 2 - compara ambos diccionarios  
